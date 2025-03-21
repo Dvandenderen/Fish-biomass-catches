@@ -1,14 +1,28 @@
 ---
-title: "North_Sea"
+title: "North Sea biomass and catches"
 format: html
 editor: visual
 ---
 
-## Quarto
+## Goal
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+To collect, compile, and analyze fish community catch data, landings, and biomass estimates from a variety of sources. This includes integrating datasets from fisheries catch statistics and scientific surveys to quantify catch and biomass across different regions. The goal is to develop a comprehensive dataset for each Large Marine Ecosystem (LME) that facilitates the validation and calibration of marine ecosystem models with a focus on fish and fisheries.
 
-## Running Code
+## Data types
+
+-   Catches and landings by LME from Sea Around us Data (version 50.1)
+
+-   Catches and landings from Watson (2017, [10.1038/sdata.2017.39](10.1038/sdata.2017.39)) aggregated to LME-scale
+
+-   ICES stock assessment database (ICES Stock Assessment Graphs database, extracted 2023/09. ICES, Copenhagen."
+
+-   Fisheries independent trawl survey data of fish biomass - DOI [10.5281/zenodo.7992513](https://doi.org/10.5281/zenodo.7992513)
+
+## Catches and landings
+
+Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). These estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
+
+The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, landings were proportionally adjusted based on the degree of overlap.
 
 When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
 
