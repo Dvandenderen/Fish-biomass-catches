@@ -39,7 +39,7 @@ dist$Species <- ifelse(dist$SpeciesID %in% c("Fis-29269","Fis-29267"), "spp.",di
 save(dist,file="Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.RData")
 
 dbDisconnect(conn)
-
+rm(list = ls())
 # ------------------------------------------------------------------------------
 # now load data and estimate for each ices stock the area where a
 # species is present, based on aquamaps, which is then overlayed with icesareas
@@ -49,7 +49,7 @@ dbDisconnect(conn)
 source("Processing/Get_stocks_ices.R")
 
 # load the aquamaps stock distribution
-load("Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.RData")
+load("Data/ICES_stocks/AquaMaps_link_ICES_stocks.RData")
 
 # load ices assessment areas
 icesareas <- read_sf("Data/ICES_stocks/ICES_areas/ICES_Areas_20160601_cut_dense_3857.shp")
@@ -103,3 +103,70 @@ for (j in 1:nrow(stocks_uni)){
   grid[specgrid$id,stocks_uni$FishStock[j]] <- 1
 }
 
+save(grid,file="Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
+
+# ------------------------------------------------------------------------------
+# get area of grid cell on land
+land <- rnaturalearth::ne_countries(scale = 10, returnclass = "sf")
+land <- st_make_valid(land)
+tt2 <- st_intersection(grid, land) 
+land_over <- data.frame(uni = tt2$id, land_sqkm = st_area(tt2)) 
+land_over$land_sqkm <- land_over$land_sqkm / 10^6 # m2 to km2
+land_over$land_sqkm <- unclass(land_over$land_sqkm)
+
+grid <- cbind(grid,land_over[match(grid$id,land_over$uni), c(2)])
+colnames(grid)[ncol(grid)-1] <- "land_sqkm"
+grid$land_sqkm <- ifelse(is.na(grid$land_sqkm), 0,grid$land_sqkm)
+grid$area_sqkm <- st_area(grid)/10^6
+grid$area_sqkm <- unclass(grid$area_sqkm)
+grid$ocean_sqkm <- grid$area_sqkm - grid$land_sqkm # get ocean
+
+# Link to LME for each mid-point and estimate fraction of grid on land  
+lme66 <- st_read("Data/LME66_polygons/lme66.shp")
+grid_mid <- st_centroid(grid)
+dat <- st_intersects(grid_mid, st_make_valid(lme66)) 
+dat <- as.data.frame(dat)
+grid$LME[dat$row.id] <- lme66$LME_NAME[dat[,2]]  
+
+save(grid,file="Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
+
+# ----------------------------------------------------------------
+load("Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
+source("Processing/Get_stocks_ices.R") # load the stocks
+stocks$FishStock <- gsub("-", ".", stocks$FishStock)
+
+# create database outside script - dataframe for each grid cell,year and stock
+totdat <- data.frame(id=NA, Catch = NA, Landings = NA,Tbio_low = NA, Tbio = NA, 
+                     Tbio_high = NA, SSB_low = NA, SSB = NA, SSB_high = NA,
+                     Stock = NA, Year = NA)
+
+for (p in 1:nrow(stocks)){
+  grid_year <- grid
+  nam <- paste(stocks$FishStock[p])  # Ensure it's a string
+  grid_spec <- grid_year[grid_year[[nam]] == 1,]
+  oc_area <- grid_spec$ocean_sqkm/sum(grid_spec$ocean_sqkm)
+  stock_year <- data.frame(id=grid_spec$id, 
+             Catch = stocks$catch[p] * oc_area,
+             Landings = stocks$landings[p] * oc_area,
+             Tbio_low = stocks$Tbio_low[p] * oc_area,
+             Tbio = stocks$Tbio[p] * oc_area,
+             Tbio_high = stocks$Tbio_high[p] * oc_area,
+             SSB_low = stocks$SSB_low[p] * oc_area,
+             SSB = stocks$SSB[p] * oc_area,
+             SSB_high = stocks$SSB_high[p] * oc_area,
+             Stock = rep(nam,length(oc_area)),
+             Year = rep(stocks$year[p],length(oc_area)))
+  totdat <- rbind(totdat,stock_year)
+}
+
+save(totdat,file="Data/ICES_stocks/Assessment_spatially_allocated.Rdata") 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  

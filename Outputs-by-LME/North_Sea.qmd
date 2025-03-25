@@ -20,21 +20,89 @@ To collect, compile, and analyze fish community catch data, landings, and biomas
 
 ## Catches and landings
 
-Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). These estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
+Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
-The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, landings were proportionally adjusted based on the degree of overlap.
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, landings were proportionally adjusted based on the degree of overlap. For each stock, landings were allocated only to areas where the species occur. For example, landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
 ```{r}
-1 + 1
+# -----------------------------------------------------
+# load SAU data
+SAU <- read.csv("../Data/SAU/SAU_NorthSea.csv")
+SAU <- subset(SAU,SAU$year > 1989)
+SAU <- subset(SAU, !(SAU$functional_group %in% c("Shrimps","Other demersal invertebrates","Cephalopods","Lobsters, crabs","Krill")))
+
+# get total catch
+Catch_SAU <- aggregate(tonnes~year,data=SAU,FUN=sum)
+colnames(Catch_SAU) <- c("Year","Tonnes")
+
+# get landings
+Land_SAU <- subset(SAU,SAU$catch_type == "Landings")
+Land_SAU <- aggregate(tonnes~year,data=Land_SAU,FUN=sum)
+colnames(Land_SAU) <- c("Year","Tonnes")
+
+# -----------------------------------------------------
+# load Watson
+load("../Data/Watson/Catch_LME_peldem.RData")
+WAT <- subset(comb,comb$LME == "North Sea" & comb$Year > 1989)
+Catch_WAT <- aggregate(Totcatch~Year,data=WAT,FUN=sum)
+colnames(Catch_WAT) <- c("Year","Tonnes")
+Land_WAT <- aggregate(Reported~Year,data=WAT,FUN=sum)
+colnames(Land_WAT) <- c("Year","Tonnes")
+
+# -----------------------------------------------------
+# load stock assessment reported landings
+load("../Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
+load("../Data/ICES_stocks/Assessment_spatially_allocated.Rdata")
+STO <- subset(grid,grid$LME == "North Sea")
+STO <- subset(totdat,totdat$id %in% STO$id)
+STO$Catch <- ifelse(is.na(STO$Catch),STO$Landings,STO$Catch)
+STO$Landings <- ifelse(is.na(STO$Landings),STO$Catch,STO$Landings)
+
+Catch_STO <- aggregate(Catch~Year,data=STO,FUN=sum)
+colnames(Catch_STO) <- c("Year","Tonnes")
+Land_STO <- aggregate(Landings~Year,data=STO,FUN=sum)
+colnames(Land_STO) <- c("Year","Tonnes")
+
+par(mar = c(5, 4, 3, 3),mfrow=c(1,2))
+plot(Catch_SAU$Tonnes/10^6~Catch_SAU$Year,ylim=c(0,7),type="l",col="red",lwd=2,
+     ylab="Catch (million tonnes y-1)",las=1,xlab="Year",main="Catch",lty=2)
+lines(Catch_WAT$Tonnes/10^6~Catch_WAT$Year,col="blue",lwd=2,lty=3)
+lines(Catch_STO$Tonnes/10^6~Catch_STO$Year,col="black",lwd=2,lty=1)
+legend(1990,7.3, legend=c("SAU", "Watson", "Ass. stocks"), col=c("red", "blue","black"), lty=c(2,3,1), cex=1,y.intersp = 1,x.intersp = .5,seg.len=1, box.lty=0,bg="transparent")
+
+plot(Land_SAU$Tonnes/10^6~Land_SAU$Year,ylim=c(0,7),type="l",col="red",lwd=2,
+     ylab="Landings (million tonnes y-1)",las=1,xlab="Year",main="Landings",lty=2)
+lines(Land_WAT$Tonnes/10^6~Land_WAT$Year,col="blue",lwd=2,lty=3)
+lines(Land_STO$Tonnes/10^6~Land_STO$Year,col="black",lwd=2,lty=1)
+
+
 ```
 
-You can add options to executable code like this
+## Biomass of assessed stocks
+
+Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
+
+The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided.
+
+SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
 ```{r}
-#| echo: false
-2 * 2
-```
+# -----------------------------------------------------
+# load stock biomass
+load("../Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
+load("../Data/ICES_stocks/Assessment_spatially_allocated.Rdata")
+STO <- subset(grid,grid$LME == "North Sea")
+STO <- subset(totdat,totdat$id %in% STO$id)
 
-The `echo: false` option disables the printing of code (only output is displayed).
+# for seven stocks, uncertainty in SSB estimate is not provided; put median value
+STO$SSB_low <- ifelse(is.na(STO$SSB_low),STO$SSB,STO$SSB_low)
+STO$SSB_high <- ifelse(is.na(STO$SSB_high),STO$SSB,STO$SSB_high)
+
+# if TBio is not provided, use SSB
+STO$Tbio <- ifelse(is.na(STO$Tbio),STO$SSB,STO$Tbio)
+STO$Tbio_low <- ifelse(is.na(STO$Tbio_low),STO$SSB_low,STO$Tbio_low) 
+STO$Tbio_high <- ifelse(is.na(STO$Tbio_high),STO$SSB_high,STO$Tbio_high)
+
+
+
+```
