@@ -123,31 +123,535 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 </header>
 
+<section id="goal" class="level2">
+<h2 class="anchored" data-anchor-id="goal">Goal</h2>
+<p>To collect, compile, and analyze fish community catch data, landings, and biomass estimates from a variety of sources. This includes integrating datasets from fisheries catch statistics and scientific surveys to quantify catch and biomass across different regions. The goal is to develop a comprehensive dataset for each Large Marine Ecosystem (LME) that facilitates the validation and calibration of marine ecosystem models with a focus on fish and fisheries.</p>
+</section>
 <section id="data-types" class="level2">
 <h2 class="anchored" data-anchor-id="data-types">Data types</h2>
 <ul>
 <li><p>Catches and landings by LME from Sea Around us Data (version 50.1)</p></li>
-<li><p>Catches and landings by LME from Watson (2017) - DOI <a href="10.1038/sdata.2017.39">10.1038/sdata.2017.39</a></p></li>
+<li><p>Catches and landings from Watson (2017, <a href="10.1038/sdata.2017.39">10.1038/sdata.2017.39</a>) aggregated to LME-scale</p></li>
 <li><p>ICES stock assessment database (ICES Stock Assessment Graphs database, extracted 2023/09. ICES, Copenhagen.”</p></li>
 <li><p>Fisheries independent trawl survey data of fish biomass - DOI <a href="https://doi.org/10.5281/zenodo.7992513">10.5281/zenodo.7992513</a></p></li>
 </ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define values</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>LME_name   <span class="ot">&lt;-</span> <span class="st">"North Sea"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>Start_year <span class="ot">&lt;-</span> <span class="dv">1990</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>End_year <span class="ot">&lt;-</span> <span class="dv">2015</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># load libraries</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sdmTMB)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 </section>
-<section id="running-code" class="level2">
-<h2 class="anchored" data-anchor-id="running-code">Running Code</h2>
-<p>When you click the <strong>Render</strong> button a document will be generated that includes both content and the output of embedded code. You can embed code like this:</p>
+<section id="catches-and-landings" class="level2">
+<h2 class="anchored" data-anchor-id="catches-and-landings">Catches and landings</h2>
+<p>Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.</p>
+<p>The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, landings were proportionally adjusted based on the degree of overlap. For each stock, landings were allocated only to areas where the species occur. For example, landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 2</code></pre>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># load SAU data</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>SAU <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"../Data/SAU/SAU_NorthSea.csv"</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>SAU <span class="ot">&lt;-</span> <span class="fu">subset</span>(SAU,SAU<span class="sc">$</span>year <span class="sc">%in%</span> Start_year<span class="sc">:</span>End_year)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>SAU <span class="ot">&lt;-</span> <span class="fu">subset</span>(SAU, <span class="sc">!</span>(SAU<span class="sc">$</span>functional_group <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Shrimps"</span>,<span class="st">"Other demersal invertebrates"</span>,<span class="st">"Cephalopods"</span>,<span class="st">"Lobsters, crabs"</span>,<span class="st">"Krill"</span>)))</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># get total catch</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>Catch_SAU <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(tonnes<span class="sc">~</span>year,<span class="at">data=</span>SAU,<span class="at">FUN=</span>sum)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(Catch_SAU) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co"># get landings</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>Land_SAU <span class="ot">&lt;-</span> <span class="fu">subset</span>(SAU,SAU<span class="sc">$</span>catch_type <span class="sc">==</span> <span class="st">"Landings"</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>Land_SAU <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(tonnes<span class="sc">~</span>year,<span class="at">data=</span>Land_SAU,<span class="at">FUN=</span>sum)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(Land_SAU) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co"># load Watson</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/Watson/Catch_LME_peldem.RData"</span>)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>WAT <span class="ot">&lt;-</span> <span class="fu">subset</span>(comb,comb<span class="sc">$</span>LME <span class="sc">==</span> LME_name <span class="sc">&amp;</span> comb<span class="sc">$</span>Year <span class="sc">%in%</span> Start_year<span class="sc">:</span>End_year)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>Catch_WAT <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(Totcatch<span class="sc">~</span>Year,<span class="at">data=</span>WAT,<span class="at">FUN=</span>sum)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(Catch_WAT) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>Land_WAT <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(Reported<span class="sc">~</span>Year,<span class="at">data=</span>WAT,<span class="at">FUN=</span>sum)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(Land_WAT) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co"># load stock assessment reported landings</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata"</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/ICES_stocks/Assessment_spatially_allocated.Rdata"</span>)</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>STO <span class="ot">&lt;-</span> <span class="fu">subset</span>(grid,grid<span class="sc">$</span>LME <span class="sc">==</span> LME_name)</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>STO <span class="ot">&lt;-</span> <span class="fu">subset</span>(totdat,totdat<span class="sc">$</span>id <span class="sc">%in%</span> STO<span class="sc">$</span>id)</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>Catch <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>Catch),STO<span class="sc">$</span>Landings,STO<span class="sc">$</span>Catch)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>Landings <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>Landings),STO<span class="sc">$</span>Catch,STO<span class="sc">$</span>Landings)</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>Catch_STO <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(Catch<span class="sc">~</span>Year,<span class="at">data=</span>STO,<span class="at">FUN=</span>sum)</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(Catch_STO) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>Land_STO <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(Landings<span class="sc">~</span>Year,<span class="at">data=</span>STO,<span class="at">FUN=</span>sum)</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(Land_STO) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">4</span>, <span class="dv">3</span>, <span class="dv">3</span>),<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>))</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Catch_SAU<span class="sc">$</span>Tonnes<span class="sc">/</span><span class="dv">10</span><span class="sc">^</span><span class="dv">6</span><span class="sc">~</span>Catch_SAU<span class="sc">$</span>Year,<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">7</span>),<span class="at">type=</span><span class="st">"l"</span>,<span class="at">col=</span><span class="st">"red"</span>,<span class="at">lwd=</span><span class="dv">2</span>,</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab=</span><span class="st">"Catch (million tonnes y-1)"</span>,<span class="at">las=</span><span class="dv">1</span>,<span class="at">xlab=</span><span class="st">"Year"</span>,<span class="at">main=</span><span class="st">"Catch"</span>,<span class="at">lty=</span><span class="dv">2</span>)</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(Catch_WAT<span class="sc">$</span>Tonnes<span class="sc">/</span><span class="dv">10</span><span class="sc">^</span><span class="dv">6</span><span class="sc">~</span>Catch_WAT<span class="sc">$</span>Year,<span class="at">col=</span><span class="st">"blue"</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">3</span>)</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(Catch_STO<span class="sc">$</span>Tonnes<span class="sc">/</span><span class="dv">10</span><span class="sc">^</span><span class="dv">6</span><span class="sc">~</span>Catch_STO<span class="sc">$</span>Year,<span class="at">col=</span><span class="st">"black"</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">1</span>)</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(Start_year,<span class="fl">7.3</span>, <span class="at">legend=</span><span class="fu">c</span>(<span class="st">"SAU"</span>, <span class="st">"Watson"</span>, <span class="st">"Ass. stocks"</span>), <span class="at">col=</span><span class="fu">c</span>(<span class="st">"red"</span>, <span class="st">"blue"</span>,<span class="st">"black"</span>), <span class="at">lty=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">1</span>), <span class="at">cex=</span><span class="dv">1</span>,<span class="at">y.intersp =</span> <span class="dv">1</span>,<span class="at">x.intersp =</span> .<span class="dv">5</span>,<span class="at">seg.len=</span><span class="dv">1</span>, <span class="at">box.lty=</span><span class="dv">0</span>,<span class="at">bg=</span><span class="st">"transparent"</span>)</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Land_SAU<span class="sc">$</span>Tonnes<span class="sc">/</span><span class="dv">10</span><span class="sc">^</span><span class="dv">6</span><span class="sc">~</span>Land_SAU<span class="sc">$</span>Year,<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">7</span>),<span class="at">type=</span><span class="st">"l"</span>,<span class="at">col=</span><span class="st">"red"</span>,<span class="at">lwd=</span><span class="dv">2</span>,</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab=</span><span class="st">"Landings (million tonnes y-1)"</span>,<span class="at">las=</span><span class="dv">1</span>,<span class="at">xlab=</span><span class="st">"Year"</span>,<span class="at">main=</span><span class="st">"Landings"</span>,<span class="at">lty=</span><span class="dv">2</span>)</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(Land_WAT<span class="sc">$</span>Tonnes<span class="sc">/</span><span class="dv">10</span><span class="sc">^</span><span class="dv">6</span><span class="sc">~</span>Land_WAT<span class="sc">$</span>Year,<span class="at">col=</span><span class="st">"blue"</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">3</span>)</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(Land_STO<span class="sc">$</span>Tonnes<span class="sc">/</span><span class="dv">10</span><span class="sc">^</span><span class="dv">6</span><span class="sc">~</span>Land_STO<span class="sc">$</span>Year,<span class="at">col=</span><span class="st">"black"</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/Catch%20&amp;%20Land.-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>You can add options to executable code like this</p>
+</section>
+<section id="biomass-of-assessed-stocks" class="level2">
+<h2 class="anchored" data-anchor-id="biomass-of-assessed-stocks">Biomass of assessed stocks</h2>
+<p>Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.</p>
+<p>The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al.&nbsp;2024; van Denderen et al.&nbsp;2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided.</p>
 <div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># load biomass from stock assessments</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/ICES_stocks/Assessment_spatially_allocated.Rdata"</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>LMEgrid <span class="ot">&lt;-</span> <span class="fu">subset</span>(grid,grid<span class="sc">$</span>LME <span class="sc">==</span> LME_name)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>STO <span class="ot">&lt;-</span> <span class="fu">subset</span>(totdat,totdat<span class="sc">$</span>id <span class="sc">%in%</span> LMEgrid<span class="sc">$</span>id <span class="sc">&amp;</span> </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>                totdat<span class="sc">$</span>Year <span class="sc">%in%</span> Start_year<span class="sc">:</span>End_year)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># add the area to be able to estimate biomass in mass per area</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>STO <span class="ot">&lt;-</span> <span class="fu">cbind</span>(STO,grid[<span class="fu">match</span>(STO<span class="sc">$</span>id,grid<span class="sc">$</span>id), <span class="fu">c</span>(<span class="st">"area_sqkm"</span>,<span class="st">"ocean_sqkm"</span>)])</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co"># for some stocks, uncertainty in SSB estimate is not provided; put median value</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>SSB_low <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>SSB_low),STO<span class="sc">$</span>SSB,STO<span class="sc">$</span>SSB_low)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>SSB_high <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>SSB_high),STO<span class="sc">$</span>SSB,STO<span class="sc">$</span>SSB_high)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># if TBio is not provided, use SSB</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>Tbio <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>Tbio),STO<span class="sc">$</span>SSB,STO<span class="sc">$</span>Tbio)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>Tbio_low <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>Tbio_low),STO<span class="sc">$</span>SSB_low,STO<span class="sc">$</span>Tbio_low) </span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>STO<span class="sc">$</span>Tbio_high <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(STO<span class="sc">$</span>Tbio_high),STO<span class="sc">$</span>SSB_high,STO<span class="sc">$</span>Tbio_high)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co"># estimate total biomass and get total area</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>Bio_STO <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(<span class="fu">cbind</span>(Tbio_low, Tbio, Tbio_high)<span class="sc">~</span>Year,<span class="at">data=</span>STO,<span class="at">FUN=</span>sum)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>Bio_STO<span class="sc">$</span>area <span class="ot">&lt;-</span> <span class="fu">sum</span>(LMEgrid<span class="sc">$</span>ocean_sqkm)</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="co"># load scientific survey biomass</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/Trawl_survey/Surveys_hauls_species_LMEs.RData"</span>)</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>Reg <span class="ot">&lt;-</span> <span class="fu">subset</span>(trawl,trawl<span class="sc">$</span>LME <span class="sc">==</span> LME_name <span class="sc">&amp;</span> </span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>                trawl<span class="sc">$</span>Year <span class="sc">%in%</span> Start_year<span class="sc">:</span>End_year)</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="co"># select all species with a stock assessment</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>Reg<span class="sc">$</span>F_type <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(Reg<span class="sc">$</span>Name <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Trisopterus esmarkii"</span>,</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Lophius piscatorius"</span>,<span class="st">"Gadus morhua"</span>,</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Lophius budegassa"</span>,<span class="st">"Pollachius virens"</span>,</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Melanogrammus aeglefinus"</span>,<span class="st">"Solea solea"</span>,</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Scophthalmus maximus"</span>,</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Glyptocephalus cynoglossus"</span>, </span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Molva molva"</span>,<span class="st">"Molva dypterygia"</span>,</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Sebastes norvegicus"</span>,<span class="st">"Platichthys flesus"</span>,</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Merlangius merlangus"</span>,<span class="st">"Pleuronectes platessa"</span>,</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Lepidorhombus whiffiagonis"</span>,</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Merluccius merluccius"</span>, <span class="st">"Dicentrarchus labrax"</span>,</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Micromesistius poutassou"</span>,<span class="st">"Squalus acanthias"</span>),</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"dem_stock"</span>,Reg<span class="sc">$</span>F_type)</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>Reg<span class="sc">$</span>F_type <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(Reg<span class="sc">$</span>Name <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Clupea harengus"</span>,<span class="st">"Sardina pilchardus"</span>,</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Mallotus villosus"</span>,</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Ammodytes tobianus"</span>,<span class="st">"Ammodytidae"</span>,</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Ammodytes"</span>,<span class="st">"Ammodytes marinus"</span>,</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Sprattus sprattus"</span>,<span class="st">"Argentina silus"</span>,</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Trachurus trachurus"</span>,<span class="st">"Scomber scombrus"</span>,</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>                                   <span class="st">"Clupea harengus harengus"</span>),</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"pel_stock"</span>,Reg<span class="sc">$</span>F_type)</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="co"># Group and summarize</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>Reg <span class="ot">&lt;-</span> Reg <span class="sc">%&gt;%</span> </span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Haul_id, Survey_Region, Gear, Year, Month, Longitude, </span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>           Latitude, Bottom_depth, F_type, uniq, LME) <span class="sc">%&gt;%</span></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">kg_km2_corrected =</span> <span class="fu">sum</span>(kg_km2_corrected, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>            <span class="at">.groups =</span> <span class="st">'drop'</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(Haul_id, Survey_Region, Gear, Year, Month, Longitude, </span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>           Latitude, Bottom_depth, F_type, uniq, LME, kg_km2_corrected) <span class="sc">%&gt;%</span></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>()</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="co"># Get estimate by haul</span></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>Reg <span class="ot">&lt;-</span> Reg <span class="sc">%&gt;%</span></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> F_type, </span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>              <span class="at">values_from =</span> kg_km2_corrected, <span class="at">values_fill =</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Total_kg_km2 =</span> <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">c</span>(<span class="st">"dem"</span>,<span class="st">"pel"</span>,<span class="st">"pel_stock"</span>,</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>                                              <span class="st">"dem_stock"</span>)), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>()</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a><span class="co"># and plot surveyed locations by year</span></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(Reg, <span class="fu">aes</span>(<span class="at">x =</span> Longitude, <span class="at">y =</span> Latitude)) <span class="sc">+</span>  <span class="fu">geom_point</span>(<span class="at">size=</span><span class="fl">0.5</span>) <span class="sc">+</span> </span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> Year)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/Stock%20bio.-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare the spatial grid</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"../Processing/Get_grids_per_LME.R"</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">get_grid_LME</span>(<span class="at">LME_name =</span> LME_name, <span class="at">grid_size_km =</span> <span class="dv">10</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(grid<span class="sc">$</span>geometry, <span class="at">border =</span> <span class="st">"blue"</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">main =</span> <span class="st">"10km Grid"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/Stock%20bio.-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> grid <span class="sc">|&gt;</span> </span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">Longitude =</span> lon, <span class="at">Latitude =</span> lat) <span class="sc">%&gt;%</span>  <span class="co"># Rename columns for clarity</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_drop_geometry</span>()      <span class="co"># Drop geometry for data manipulation</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Replicate the grid for each unique survey year</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">replicate_df</span>(grid, <span class="st">"Year"</span>, <span class="fu">min</span>(Reg<span class="sc">$</span>Year)<span class="sc">:</span><span class="fu">max</span>(Reg<span class="sc">$</span>Year)) </span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Standardize the bottom depth for the grid</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> grid <span class="sc">|&gt;</span> </span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">log_depth =</span> <span class="fu">log</span>(<span class="fu">abs</span>(Depth)),</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">log_depth_std =</span> (log_depth <span class="sc">-</span> <span class="fu">mean</span>(<span class="fu">log</span>(Reg<span class="sc">$</span>Bottom_depth))) <span class="sc">/</span> </span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>           <span class="fu">sd</span>(<span class="fu">log</span>(Reg<span class="sc">$</span>Bottom_depth)))</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert longitude and latitude to UTM coordinates</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">add_utm_columns</span>(grid, <span class="fu">c</span>(<span class="st">"Longitude"</span>, <span class="st">"Latitude"</span>), <span class="at">units =</span> <span class="st">"km"</span>)  </span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> grid <span class="sc">|&gt;</span> <span class="fu">na.omit</span>()</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare the survey dataset</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>Reg <span class="ot">&lt;-</span> Reg <span class="sc">%&gt;%</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Month =</span> <span class="fu">as.numeric</span>(Month), </span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">log_depth_std =</span> <span class="fu">scale</span>(<span class="fu">log</span>(Bottom_depth))[, <span class="dv">1</span>],  <span class="co"># Standardize bottom depth</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">Yearf =</span> <span class="fu">as.factor</span>(Year),  <span class="co"># Convert Year to factor</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">Monthf =</span> <span class="fu">as.factor</span>(Month), <span class="co"># Convert Month to factor</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">Surveyf =</span> <span class="fu">as.factor</span>(Survey_Region)  <span class="co"># Convert Survey to factor</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert longitude and latitude in survey data to UTM coordinates</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>Reg <span class="ot">&lt;-</span> <span class="fu">add_utm_columns</span>(Reg, <span class="fu">c</span>(<span class="st">"Longitude"</span>, <span class="st">"Latitude"</span>), <span class="at">units =</span> <span class="st">"km"</span>)</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a><span class="co"># now check if a model is already available</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/stocks_"</span>,LME_name,<span class="st">".RData"</span>))) {</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get stocks biomass </span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>  Reg<span class="sc">$</span>stocks_kg_km2 <span class="ot">&lt;-</span> Reg<span class="sc">$</span>dem_stock <span class="sc">+</span> Reg<span class="sc">$</span>pel_stock</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get the data type to run the model</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>  data_type <span class="ot">&lt;-</span> <span class="st">"stocks_kg_km2"</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Substitute 0s with the minimum value registered</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>  <span class="co"># see table(Reg$stocks_kg_km2)</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  Reg[,data_type] <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(Reg[,data_type] <span class="sc">==</span> <span class="dv">0</span>,</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>                              <span class="fu">min</span>(Reg[,data_type][Reg[,data_type] <span class="sc">&gt;</span> <span class="dv">0</span>]),</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>                              Reg[,data_type])</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create a spatial mesh for the data</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>  spatial_mesh <span class="ot">&lt;-</span> <span class="fu">make_mesh</span>(Reg, <span class="fu">c</span>(<span class="st">"X"</span>, <span class="st">"Y"</span>), <span class="at">cutoff =</span> <span class="dv">20</span>)</span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Fit a spatial model using sdmTMB</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>  model_fit <span class="ot">&lt;-</span> <span class="fu">sdmTMB</span>(</span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>    stocks_kg_km2 <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> Yearf <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>Monthf) <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>Surveyf) <span class="sc">+</span> </span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>      <span class="fu">poly</span>(log_depth_std,<span class="dv">2</span>,<span class="at">raw =</span> T), </span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> Reg,                     </span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">mesh =</span> spatial_mesh,                </span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">family =</span> <span class="fu">lognormal</span>(<span class="at">link =</span> <span class="st">"log"</span>),        <span class="co"># Lognormal family</span></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>    <span class="at">spatial =</span> <span class="st">"on"</span>,                        <span class="co"># Enable spatial random effects</span></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> <span class="st">"Year"</span>,                         <span class="co"># Add spatiotemporal random effects</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>    <span class="at">spatiotemporal =</span> <span class="st">"iid"</span>,                 <span class="co"># iid independent, rw as a random walk</span></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Print model summary for diagnostics</span></span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">save</span>(model_fit,<span class="at">file=</span> <span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/stocks_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">load</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/stocks_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(model_fit)  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 4</code></pre>
+<pre><code>Spatiotemporal model fit by ML ['sdmTMB']
+Formula: stocks_kg_km2 ~ 0 + Yearf + (1 | Monthf) + (1 | Surveyf) + poly(log_depth_std, 
+ Formula:     2, raw = T)
+Mesh: spatial_mesh (isotropic covariance)
+Time column: Year
+Data: Reg
+Family: lognormal(link = 'log')
+ 
+                                 coef.est coef.se
+Yearf1990                            9.40    0.41
+Yearf1991                            9.47    0.41
+Yearf1992                            9.70    0.41
+Yearf1993                            9.70    0.41
+Yearf1994                            9.39    0.41
+Yearf1995                            9.54    0.41
+Yearf1996                            9.31    0.41
+Yearf1997                            9.33    0.41
+Yearf1998                            9.33    0.41
+Yearf1999                            9.47    0.41
+Yearf2000                            9.66    0.41
+Yearf2001                            9.56    0.41
+Yearf2002                            9.37    0.41
+Yearf2003                            9.25    0.41
+Yearf2004                            9.13    0.41
+Yearf2005                            9.06    0.41
+Yearf2006                            9.03    0.41
+Yearf2007                            9.13    0.41
+Yearf2008                            9.13    0.41
+Yearf2009                            9.14    0.41
+Yearf2010                            9.25    0.41
+Yearf2011                            9.39    0.41
+Yearf2012                            9.29    0.41
+Yearf2013                            9.27    0.41
+Yearf2014                            9.58    0.41
+Yearf2015                            9.58    0.41
+poly(log_depth_std, 2, raw = T)1     0.03    0.04
+poly(log_depth_std, 2, raw = T)2    -0.16    0.02
+
+Random intercepts:
+        Std. Dev.
+Monthf       0.44
+Surveyf      0.75
+
+Dispersion parameter: 0.98
+Matérn range: 157.97
+Spatial SD: 0.76
+Spatiotemporal IID SD: 0.38
+ML criterion at convergence: 181402.063
+
+See ?tidy.sdmTMB to extract these values as a data frame.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare grid for the prediction</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>grid<span class="sc">$</span>Yearf <span class="ot">&lt;-</span> <span class="fu">as.factor</span>(grid<span class="sc">$</span>Year)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>grid<span class="sc">$</span>Surveyf <span class="ot">&lt;-</span> <span class="fu">as.factor</span>(<span class="st">"NS-IBTS"</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>grid<span class="sc">$</span>Monthf <span class="ot">&lt;-</span> <span class="fu">as.factor</span>(<span class="dv">2</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate predictions using the fitted model and the grid</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>predictions <span class="ot">&lt;-</span> <span class="fu">predict</span>(model_fit, <span class="at">newdata =</span> grid, </span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>                       <span class="at">return_tmb_object =</span> <span class="cn">TRUE</span>) <span class="co">#kg/km2</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co"># make sure that output is back-transformed, if used spatially --&gt; </span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># predictions$data$est &lt;- exp(predictions$data$est)</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the biomass index with bias correction</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/Index_stocks_"</span>,LME_name,<span class="st">".RData"</span>))) {</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  bio_index <span class="ot">&lt;-</span> <span class="fu">get_index</span>(predictions, <span class="at">area =</span> <span class="dv">100</span>, <span class="at">bias_correct =</span> T)</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">save</span>(bio_index,<span class="at">file=</span> <span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/Index_stocks_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">load</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/Index_stocks_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>bio_index<span class="sc">$</span>area <span class="ot">&lt;-</span> <span class="fu">length</span>(grid<span class="sc">$</span>Year[grid<span class="sc">$</span>Year <span class="sc">==</span> Start_year]) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Bio_STO<span class="sc">$</span>Tbio<span class="sc">/</span>Bio_STO<span class="sc">$</span>area<span class="sc">~</span>Bio_STO<span class="sc">$</span>Year,<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">45</span>),<span class="at">type=</span><span class="st">"l"</span>,<span class="at">col=</span><span class="st">"black"</span>,</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>     <span class="at">lwd=</span><span class="dv">2</span>,<span class="at">ylab=</span><span class="st">"tonnes km-2"</span>,<span class="at">las=</span><span class="dv">1</span>,<span class="at">xlab=</span><span class="st">"Year"</span>,<span class="at">main=</span><span class="st">"Biomass assessed stocks"</span>)</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(Bio_STO<span class="sc">$</span>Tbio_low<span class="sc">/</span>Bio_STO<span class="sc">$</span>area <span class="sc">~</span> Bio_STO<span class="sc">$</span>Year,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">3</span>)</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(Bio_STO<span class="sc">$</span>Tbio_high<span class="sc">/</span>Bio_STO<span class="sc">$</span>area <span class="sc">~</span> Bio_STO<span class="sc">$</span>Year,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">3</span>)</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(bio_index<span class="sc">$</span>est<span class="sc">/</span>bio_index<span class="sc">$</span>area<span class="sc">/</span><span class="dv">1000</span><span class="sc">~</span>bio_index<span class="sc">$</span>Year,<span class="at">col=</span><span class="st">"#228833"</span>,<span class="at">pch=</span><span class="dv">16</span>,<span class="at">lwd=</span><span class="dv">2</span>)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="fu">polygon</span>(<span class="at">x =</span> <span class="fu">c</span>(bio_index<span class="sc">$</span>Year,<span class="fu">rev</span>(bio_index<span class="sc">$</span>Year)), </span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="fu">c</span>(bio_index<span class="sc">$</span>lwr<span class="sc">/</span>bio_index<span class="sc">$</span>area<span class="sc">/</span><span class="dv">1000</span>,</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>              <span class="fu">rev</span>(bio_index<span class="sc">$</span>upr<span class="sc">/</span>bio_index<span class="sc">$</span>area<span class="sc">/</span><span class="dv">1000</span>)),</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="st">"#228833"</span>, <span class="fl">0.2</span>),<span class="at">border=</span><span class="cn">NA</span>)</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(Start_year,<span class="dv">47</span>, <span class="at">legend=</span><span class="fu">c</span>(<span class="st">"Stock database"</span>, <span class="st">"Trawl survey"</span>),</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>       <span class="at">col=</span><span class="fu">c</span>(<span class="st">"black"</span>, <span class="st">"#228833"</span>), <span class="at">lty=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">cex=</span><span class="dv">1</span>,<span class="at">y.intersp =</span> <span class="dv">1</span>,<span class="at">x.intersp =</span> .<span class="dv">5</span>,</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>       <span class="at">seg.len=</span><span class="dv">1</span>,<span class="at">box.lty=</span><span class="dv">0</span>,<span class="at">bg=</span><span class="st">"transparent"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/Stock%20bio.-3.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>The <code>echo: false</code> option disables the printing of code (only output is displayed).</p>
+</section>
+<section id="total-biomass" class="level2">
+<h2 class="anchored" data-anchor-id="total-biomass">Total biomass</h2>
+<p>Time series of total fish biomass were estimated by LME using data from scientific trawl surveys in a similar way as above but now for all species in the survey.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># continue with the above</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># check if a model is already available</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/total_"</span>,LME_name,<span class="st">".RData"</span>))) {</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get the data type to run the model</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  data_type <span class="ot">&lt;-</span> <span class="st">"Total_kg_km2"</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Substitute 0s with the minimum value registered</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># see table(Reg$Total_kg_km2 == 0)</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  Reg[,data_type] <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(Reg[,data_type] <span class="sc">==</span> <span class="dv">0</span>,</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>                              <span class="fu">min</span>(Reg[,data_type][Reg[,data_type] <span class="sc">&gt;</span> <span class="dv">0</span>]),</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>                              Reg[,data_type])</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create a spatial mesh for the data</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  spatial_mesh <span class="ot">&lt;-</span> <span class="fu">make_mesh</span>(Reg, <span class="fu">c</span>(<span class="st">"X"</span>, <span class="st">"Y"</span>), <span class="at">cutoff =</span> <span class="dv">20</span>)</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Fit a spatial model using sdmTMB</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  model_fit <span class="ot">&lt;-</span> <span class="fu">sdmTMB</span>(</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    Total_kg_km2 <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> Yearf <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>Monthf) <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>Surveyf) <span class="sc">+</span> </span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>      <span class="fu">poly</span>(log_depth_std,<span class="dv">2</span>,<span class="at">raw =</span> T), </span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> Reg,                     </span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">mesh =</span> spatial_mesh,                </span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">family =</span> <span class="fu">lognormal</span>(<span class="at">link =</span> <span class="st">"log"</span>),        <span class="co"># Lognormal family</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">spatial =</span> <span class="st">"on"</span>,                        <span class="co"># Enable spatial random effects</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> <span class="st">"Year"</span>,                         <span class="co"># Add spatiotemporal random effects</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">spatiotemporal =</span> <span class="st">"iid"</span>,                 <span class="co"># iid independent, rw as a random walk</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Print model summary for diagnostics</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">save</span>(model_fit,<span class="at">file=</span> <span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/total_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">load</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/total_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(model_fit)  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Spatiotemporal model fit by ML ['sdmTMB']
+Formula: Total_kg_km2 ~ 0 + Yearf + (1 | Monthf) + (1 | Surveyf) + poly(log_depth_std, 
+ Formula:     2, raw = T)
+Mesh: spatial_mesh (isotropic covariance)
+Time column: Year
+Data: Reg
+Family: lognormal(link = 'log')
+ 
+                                 coef.est coef.se
+Yearf1990                            9.51    0.37
+Yearf1991                            9.58    0.37
+Yearf1992                            9.80    0.37
+Yearf1993                            9.80    0.37
+Yearf1994                            9.52    0.37
+Yearf1995                            9.66    0.37
+Yearf1996                            9.44    0.37
+Yearf1997                            9.52    0.37
+Yearf1998                            9.51    0.37
+Yearf1999                            9.63    0.37
+Yearf2000                            9.78    0.37
+Yearf2001                            9.70    0.37
+Yearf2002                            9.54    0.37
+Yearf2003                            9.41    0.37
+Yearf2004                            9.40    0.37
+Yearf2005                            9.35    0.37
+Yearf2006                            9.33    0.37
+Yearf2007                            9.44    0.37
+Yearf2008                            9.40    0.37
+Yearf2009                            9.41    0.37
+Yearf2010                            9.44    0.37
+Yearf2011                            9.57    0.37
+Yearf2012                            9.51    0.37
+Yearf2013                            9.47    0.37
+Yearf2014                            9.79    0.37
+Yearf2015                            9.78    0.37
+poly(log_depth_std, 2, raw = T)1     0.00    0.03
+poly(log_depth_std, 2, raw = T)2    -0.13    0.01
+
+Random intercepts:
+        Std. Dev.
+Monthf       0.43
+Surveyf      0.70
+
+Dispersion parameter: 0.84
+Matérn range: 152.26
+Spatial SD: 0.62
+Spatiotemporal IID SD: 0.30
+ML criterion at convergence: 184379.957
+
+See ?tidy.sdmTMB to extract these values as a data frame.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># grid is already prepared for the prediction</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate predictions using the fitted model and the grid</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>predictions <span class="ot">&lt;-</span> <span class="fu">predict</span>(model_fit, <span class="at">newdata =</span> grid, </span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>                       <span class="at">return_tmb_object =</span> <span class="cn">TRUE</span>) <span class="co">#kg/km2</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co"># make sure that output is back-transformed, if used spatially --&gt; </span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co"># predictions$data$est &lt;- exp(predictions$data$est)</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the biomass index with bias correction</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/Index_total_"</span>,LME_name,<span class="st">".RData"</span>))) {</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  bio_index <span class="ot">&lt;-</span> <span class="fu">get_index</span>(predictions, <span class="at">area =</span> <span class="dv">100</span>, <span class="at">bias_correct =</span> T)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">save</span>(bio_index,<span class="at">file=</span> <span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/Index_total_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">load</span>(<span class="fu">paste0</span>(<span class="st">"../Models_sdmtmb/Index_total_"</span>,LME_name,<span class="st">".RData"</span>))</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>bio_index<span class="sc">$</span>area <span class="ot">&lt;-</span> <span class="fu">length</span>(grid<span class="sc">$</span>Year[grid<span class="sc">$</span>Year <span class="sc">==</span> Start_year]) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="co"># make plot</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(bio_index<span class="sc">$</span>est<span class="sc">/</span>bio_index<span class="sc">$</span>area<span class="sc">/</span><span class="dv">1000</span><span class="sc">~</span>bio_index<span class="sc">$</span>Year,<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">45</span>),<span class="at">type=</span><span class="st">"l"</span>,<span class="at">col=</span><span class="st">"#228833"</span>,<span class="at">lwd=</span><span class="dv">2</span>,</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab=</span><span class="st">"tonnes km-2"</span>,<span class="at">las=</span><span class="dv">1</span>,<span class="at">xlab=</span><span class="st">"Year"</span>,<span class="at">main=</span><span class="st">"Total survey biomass"</span>)</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="fu">polygon</span>(<span class="at">x =</span> <span class="fu">c</span>(bio_index<span class="sc">$</span>Year,<span class="fu">rev</span>(bio_index<span class="sc">$</span>Year)), </span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="fu">c</span>(bio_index<span class="sc">$</span>lwr<span class="sc">/</span>bio_index<span class="sc">$</span>area<span class="sc">/</span><span class="dv">1000</span>,</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>              <span class="fu">rev</span>(bio_index<span class="sc">$</span>upr<span class="sc">/</span>bio_index<span class="sc">$</span>area<span class="sc">/</span><span class="dv">1000</span>)),</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="st">"#228833"</span>, <span class="fl">0.2</span>),<span class="at">border=</span><span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/Tot.%20biomass-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="exploitation-rate" class="level2">
+<h2 class="anchored" data-anchor-id="exploitation-rate">Exploitation rate</h2>
+<p>Time series of the fish community exploitation rate were estimated by LME by dividing catches over total biomass. This was done using SAU and survey data, as well as, stock assessment information.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Catch_SAU<span class="sc">$</span>Tonnes<span class="sc">/</span>(bio_index<span class="sc">$</span>est<span class="sc">/</span><span class="dv">1000</span>) <span class="sc">~</span> Catch_SAU<span class="sc">$</span>Year, </span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">lty=</span><span class="dv">2</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">col=</span><span class="st">"blue"</span>,<span class="at">type=</span><span class="st">"l"</span>,<span class="at">ylab=</span><span class="st">"yr-1"</span>,<span class="at">las=</span><span class="dv">1</span>,<span class="at">xlab=</span><span class="st">"Year"</span>,</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">main=</span><span class="st">"Exploitation rate"</span>,<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>))</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>ER_STO <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(<span class="fu">cbind</span>(Catch,Tbio)<span class="sc">~</span>Year,<span class="at">data=</span>STO,<span class="at">FUN=</span>sum)</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>ER_STO<span class="sc">$</span>ER <span class="ot">&lt;-</span> ER_STO<span class="sc">$</span>Catch<span class="sc">/</span>ER_STO<span class="sc">$</span>Tbio</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(ER_STO<span class="sc">$</span>ER<span class="sc">~</span>ER_STO<span class="sc">$</span>Year,<span class="at">lty=</span><span class="dv">3</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">col=</span><span class="st">"red"</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(Start_year,<span class="dv">1</span>, <span class="at">legend=</span><span class="fu">c</span>(<span class="st">"SAU/survey biomass"</span>,<span class="st">"Stock database"</span>),</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">col=</span><span class="fu">c</span>(<span class="st">"blue"</span>, <span class="st">"red"</span>), <span class="at">lty=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>), <span class="at">cex=</span><span class="dv">1</span>,<span class="at">y.intersp =</span> <span class="dv">1</span>,<span class="at">x.intersp =</span> .<span class="dv">5</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">seg.len=</span><span class="dv">1</span>,<span class="at">box.lty=</span><span class="dv">0</span>,<span class="at">bg=</span><span class="st">"transparent"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/Expl.%20rate-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="percentage-of-demersal-fish" class="level2">
+<h2 class="anchored" data-anchor-id="percentage-of-demersal-fish">Percentage of demersal fish</h2>
+<p>The bottom trawl survey data is likely to underestimate the abundance of pelagic fish. One way to assess the extent of this underestimation is by comparing the percentage of demersal fish in the survey with their percentage in the catch.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># get it for SAU</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>peltype <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Small pelagics (&lt;30 cm)"</span>,<span class="st">"Medium pelagics (30 - 89 cm)"</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>              <span class="st">"Large pelagics (&gt;=90 cm)"</span>,<span class="st">"Small bathypelagics (&lt;30 cm)"</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Medium bathypelagics (30 - 89 cm)"</span>,<span class="st">"Large bathypelagics (&gt;=90 cm)"</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>pel_SAU <span class="ot">&lt;-</span> <span class="fu">subset</span>(SAU,SAU<span class="sc">$</span>functional_group <span class="sc">%in%</span> peltype)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>pel_SAU <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(tonnes<span class="sc">~</span>year,<span class="at">data=</span>pel_SAU,<span class="at">FUN=</span>sum)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pel_SAU) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>dem_SAU <span class="ot">&lt;-</span> <span class="fu">subset</span>(SAU,<span class="sc">!</span>(SAU<span class="sc">$</span>functional_group <span class="sc">%in%</span> peltype))</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>dem_SAU <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(tonnes<span class="sc">~</span>year,<span class="at">data=</span>dem_SAU,<span class="at">FUN=</span>sum)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(dem_SAU) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>pcdem_SAU <span class="ot">&lt;-</span> dem_SAU<span class="sc">$</span>Tonnes<span class="sc">/</span> (pel_SAU<span class="sc">$</span>Tonnes <span class="sc">+</span> dem_SAU<span class="sc">$</span>Tonnes) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="co"># get if for Watson</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>pel_WAT <span class="ot">&lt;-</span> <span class="fu">subset</span>(WAT,WAT<span class="sc">$</span>Ftype <span class="sc">==</span><span class="st">"pel"</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>pel_WAT <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(Totcatch<span class="sc">~</span>Year,<span class="at">data=</span>pel_WAT,<span class="at">FUN=</span>sum)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pel_WAT) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>dem_WAT <span class="ot">&lt;-</span> <span class="fu">subset</span>(WAT,WAT<span class="sc">$</span>Ftype <span class="sc">==</span><span class="st">"dem"</span>)</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>dem_WAT <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(Totcatch<span class="sc">~</span>Year,<span class="at">data=</span>dem_WAT,<span class="at">FUN=</span>sum)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(dem_WAT) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"Tonnes"</span>)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>pcdem_WAT <span class="ot">&lt;-</span> dem_WAT<span class="sc">$</span>Tonnes<span class="sc">/</span> (pel_WAT<span class="sc">$</span>Tonnes <span class="sc">+</span> dem_WAT<span class="sc">$</span>Tonnes) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="co"># get it for the survey - shortcut</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../Data/Trawl_survey/Surveys_hauls_species_LMEs.RData"</span>)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>Reg <span class="ot">&lt;-</span> <span class="fu">subset</span>(trawl,trawl<span class="sc">$</span>LME <span class="sc">==</span> LME_name <span class="sc">&amp;</span> </span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>                trawl<span class="sc">$</span>Year <span class="sc">%in%</span> Start_year<span class="sc">:</span>End_year)</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>pel_SUR <span class="ot">&lt;-</span> <span class="fu">subset</span>(Reg,Reg<span class="sc">$</span>F_type <span class="sc">==</span> <span class="st">"pel"</span>)</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>pel_SUR <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(kg_km2_corrected<span class="sc">~</span>Year,<span class="at">data=</span>pel_SUR,<span class="at">FUN=</span>sum)</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pel_SUR) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"kg_km2_corrected"</span>)</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>dem_SUR <span class="ot">&lt;-</span> <span class="fu">subset</span>(Reg,Reg<span class="sc">$</span>F_type <span class="sc">==</span> <span class="st">"dem"</span>)</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>dem_SUR <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(kg_km2_corrected<span class="sc">~</span>Year,<span class="at">data=</span>dem_SUR,<span class="at">FUN=</span>sum)</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(dem_SUR) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Year"</span>,<span class="st">"kg_km2_corrected"</span>)</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>pcdem_SUR <span class="ot">&lt;-</span> dem_SUR<span class="sc">$</span>kg_km2_corrected<span class="sc">/</span> (pel_SUR<span class="sc">$</span>kg_km2_corrected <span class="sc">+</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>                                          dem_SUR<span class="sc">$</span>kg_km2_corrected) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(pcdem_SAU<span class="sc">~</span>dem_SAU<span class="sc">$</span>Year,<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">100</span>),<span class="at">type=</span><span class="st">"l"</span>,<span class="at">col=</span><span class="st">"red"</span>,</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>     <span class="at">lwd=</span><span class="dv">2</span>,<span class="at">lty=</span><span class="dv">2</span>,<span class="at">ylab=</span><span class="st">"%"</span>,<span class="at">las=</span><span class="dv">1</span>,<span class="at">xlab=</span><span class="st">"Year"</span>, <span class="at">main=</span><span class="st">"% demersal in total fish"</span>)</span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(pcdem_WAT<span class="sc">~</span>dem_WAT<span class="sc">$</span>Year,<span class="at">lty=</span><span class="dv">3</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">col=</span><span class="st">"blue"</span>)</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(pcdem_SUR<span class="sc">~</span>dem_SUR<span class="sc">$</span>Year,<span class="at">lty=</span><span class="dv">1</span>,<span class="at">lwd=</span><span class="dv">2</span>,<span class="at">col=</span><span class="st">"black"</span>)</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(Start_year,<span class="dv">35</span>, <span class="at">legend=</span><span class="fu">c</span>(<span class="st">"SAU (catch)"</span>, <span class="st">"Watson (catch)"</span>, <span class="st">"Trawl sur. (biomass)"</span>), <span class="at">col=</span><span class="fu">c</span>(<span class="st">"red"</span>, <span class="st">"blue"</span>,<span class="st">"black"</span>), <span class="at">lty=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">1</span>), <span class="at">cex=</span><span class="dv">1</span>,<span class="at">y.intersp =</span> <span class="dv">1</span>,<span class="at">x.intersp =</span> .<span class="dv">5</span>,<span class="at">seg.len=</span><span class="dv">1</span>, <span class="at">box.lty=</span><span class="dv">0</span>,<span class="at">bg=</span><span class="st">"transparent"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="North_Sea_files/figure-html/perc_demersal-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
 </section>
 
 </main>
