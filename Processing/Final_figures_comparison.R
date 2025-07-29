@@ -28,8 +28,10 @@ df_summary <- df_long %>%
     .groups = "drop"
   )
 
-EwE <- data.frame(Region = c("North Sea","Gulf of Alaska","Celtic-Biscay Shelf"),measure = "EwE",
-                  median= c(18.08,43.0,13.50),lower=NA,upper=NA)
+EwE <- data.frame(Region = c("North Sea","Gulf of Alaska",
+                             "Celtic-Biscay Shelf",
+                             "East Bering Sea"),measure = "EwE",
+                  median= c(18.08,43.0,13.50,53.5),lower=NA,upper=NA)
 
 df_summary <- rbind(df_summary,EwE )
 
@@ -61,7 +63,7 @@ ggplot(df_summary, aes(x = Region, y = median, color = measure)) +
        x = "Region (sorted from low to high)",
        y = "Tonnes/km²",
        color = "Metric") +
-  theme_minimal() + ylim(0,80)+
+  theme_minimal() +  coord_cartesian() + scale_y_log10() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 
 # -----------------------------------------------------------------------------
