@@ -1,31 +1,30 @@
-North Sea biomass and catches
-================
+---
+title: "North Sea biomass and catches"
+format: html
+embed-resources: true
+editor: visual
+---
 
 ## Goal
 
-To collect, compile, and analyze fish community catch data, landings,
-and biomass estimates from a variety of sources. This includes
-integrating datasets from fisheries catch statistics and scientific
-surveys to quantify catch and biomass across different regions. The goal
-is to develop a comprehensive dataset for each Large Marine Ecosystem
-(LME) that facilitates the validation and calibration of marine
-ecosystem models with a focus on fish and fisheries.
+To collect, compile, and analyze fish community catch data, landings, and biomass estimates from a variety of sources. This includes integrating datasets from fisheries catch statistics and scientific surveys to quantify catch and biomass across different regions. The goal is to develop a dataset, including both Large Marine Ecosystems (LMEs) and Marine Ecoregions (MEs), that facilitates the validation and calibration of marine ecosystem models with a focus on fish and fisheries.
 
 ## Data types
 
-- Catches and landings by LME from Sea Around us Data (version 50.1)
+-   Catches and landings by LME from Sea Around us Data (version 50.1)
 
-- Catches and landings from Watson (2017,
-  [10.1038/sdata.2017.39](10.1038/sdata.2017.39)) aggregated to
-  LME-scale
+-   Catches and landings from Watson (2017, [10.1038/sdata.2017.39](10.1038/sdata.2017.39)) aggregated to LME-scale
 
-- ICES stock assessment database (ICES Stock Assessment Graphs database,
-  extracted 2023/09. ICES, Copenhagen.”
+-   ICES stock assessment database (ICES Stock Assessment Graphs database, extracted 2023/09. ICES, Copenhagen."
 
-- Fisheries independent trawl survey data of fish biomass - DOI
-  [10.5281/zenodo.7992513](https://doi.org/10.5281/zenodo.7992513)
+-   Fisheries independent bottom trawl survey data of fish biomass corrected with a catchability factor and standardized by swept area - DOI [10.5281/zenodo.7992513](https://doi.org/10.5281/zenodo.7992513)
 
-``` r
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| error: false
+
 # define values
 LME_name   <- "North Sea"
 Start_year <- 1990
@@ -42,22 +41,11 @@ library(sdmTMB)
 
 ## Catches and landings
 
-Time series of marine fish catches and landings were estimated by LME
-using data from SAU and Watson (2017). The catch estimates encompass
-landings, discards, and approximations of illegal, unregulated, and
-unreported (IUU) catches.
+Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
-The landings figure includes a time series of landings for all assessed
-stocks for which total biomass or spawning stock biomass estimates are
-available in the North Sea. Some of these stocks have spatial assessment
-areas that only partially overlap with the North Sea. In such cases,
-landings were proportionally adjusted based on the degree of overlap.
-For each stock, landings were allocated only to areas where the species
-occur. For example, landings from stocks inhabiting shallow waters were
-not assigned to deeper areas. This allocation was based on distribution
-maps from AquaMaps.
+The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, landings were proportionally adjusted based on the degree of overlap. For each stock, landings were allocated only to areas where the species occur. For example, landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
-``` r
+```{r Catch & Land. }
 # -----------------------------------------------------
 # load SAU data
 SAU <- read.csv("../Data/SAU/SAU_NorthSea.csv")
@@ -107,30 +95,21 @@ plot(Land_SAU$Tonnes/10^6~Land_SAU$Year,ylim=c(0,7),type="l",col="red",lwd=2,
      ylab="Landings (million tonnes y-1)",las=1,xlab="Year",main="Landings",lty=2)
 lines(Land_WAT$Tonnes/10^6~Land_WAT$Year,col="blue",lwd=2,lty=3)
 lines(Land_STO$Tonnes/10^6~Land_STO$Year,col="black",lwd=2,lty=1)
-```
 
-![](North_Sea_files/figure-commonmark/Catch%20&%20Land.-1.png)
+
+```
 
 ## Biomass of assessed stocks
 
-Time series of assessed fish biomass were estimated by LME using data
-from scientific trawl surveys and based on information for all assessed
-stocks for which total biomass or spawning stock biomass estimates are
-available in the North Sea. Some of these stocks have spatial assessment
-areas that only partially overlap with the North Sea. In such cases,
-biomass were proportionally adjusted based on the degree of overlap. For
-each stock, biomass were allocated only to areas where the species
-occur. For example, biomass from stocks inhabiting shallow waters were
-not assigned to deeper areas. This allocation was based on distribution
-maps from AquaMaps.
+Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
-The biomass estimates from scientific surveys were corrected for
-differences in sampling area and trawl gear catchability (Maureaud et
-al. 2024; van Denderen et al. 2023). We estimated both total biomass and
-biomass per unit area using the GLMMTMB package. We only included
-species for which a stock assessment is provided.
+The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided.
 
-``` r
+```{r Stock bio.}
+#| warning: false
+#| message: false
+#| error: false
+
 # -----------------------------------------------------
 # load biomass from stock assessments
 load("../Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
@@ -140,51 +119,69 @@ STO <- subset(totdat,totdat$id %in% LMEgrid$id &
                 totdat$Year %in% Start_year:End_year)
 
 # add the area to be able to estimate biomass in mass per area
-STO <- cbind(STO,grid[match(STO$id,grid$id), c("area_sqkm","ocean_sqkm")])
+STO <- cbind(STO,grid[match(STO$id,grid$id), c("area_sqkm","ocean_sqkm","depth")])
 
-# for some stocks, uncertainty in SSB estimate is not provided; put median value
+# for some stocks, uncertainty in Tbio is not provide; put median 
+STO$Tbio_low <- ifelse(is.na(STO$Tbio_low),STO$Tbio,STO$Tbio_low)
+STO$Tbio_high <- ifelse(is.na(STO$Tbio_high),STO$Tbio,STO$Tbio_high)
+
+# for some only SSB is provided; add to Tbio
 STO$SSB_low <- ifelse(is.na(STO$SSB_low),STO$SSB,STO$SSB_low)
 STO$SSB_high <- ifelse(is.na(STO$SSB_high),STO$SSB,STO$SSB_high)
-
-# if TBio is not provided, use SSB
 STO$Tbio <- ifelse(is.na(STO$Tbio),STO$SSB,STO$Tbio)
 STO$Tbio_low <- ifelse(is.na(STO$Tbio_low),STO$SSB_low,STO$Tbio_low) 
 STO$Tbio_high <- ifelse(is.na(STO$Tbio_high),STO$SSB_high,STO$Tbio_high)
 
 # estimate total biomass and get total area
+STO <- subset(STO,STO$depth >= -500)
 Bio_STO <- aggregate(cbind(Tbio_low, Tbio, Tbio_high)~Year,data=STO,FUN=sum)
-Bio_STO$area <- sum(LMEgrid$ocean_sqkm)
+Bio_STO$area <- sum(LMEgrid$ocean_sqkm[LMEgrid$depth >= -500])
 
 # -----------------------------------------------------
 # load scientific survey biomass
-
 load("../Data/Trawl_survey/Surveys_hauls_species_LMEs.RData")
 Reg <- subset(trawl,trawl$LME == LME_name & 
                 trawl$Year %in% Start_year:End_year)
 
-# select all species with a stock assessment
-Reg$F_type <- ifelse(Reg$Name %in% c("Trisopterus esmarkii",
-                                   "Lophius piscatorius","Gadus morhua",
-                                   "Lophius budegassa","Pollachius virens",
-                                   "Melanogrammus aeglefinus","Solea solea",
-                                   "Scophthalmus maximus",
-                                   "Glyptocephalus cynoglossus", 
-                                   "Molva molva","Molva dypterygia",
-                                   "Sebastes norvegicus","Platichthys flesus",
-                                   "Merlangius merlangus","Pleuronectes platessa",
-                                   "Lepidorhombus whiffiagonis",
-                                   "Merluccius merluccius", "Dicentrarchus labrax",
-                                   "Micromesistius poutassou","Squalus acanthias"),
-                    "dem_stock",Reg$F_type)
+#rm few hauls from FR-CGFS and SWC-IBTS
+Reg <- subset(Reg,Reg$Survey_Region %in% c("BITS","NorBTS","NS-IBTS"))
+              
+# match all hauls with the LMEgrid id
+hauls <- Reg[!duplicated(Reg$Haul_id), ]
+hauls <- st_as_sf(hauls, coords = c("Longitude", "Latitude"), crs = 4326)
+ha_grid <- st_intersects(hauls,LMEgrid)
+ha_grid <- as.data.frame(ha_grid)
+ha_grid <- data.frame(Haul_id = hauls$Haul_id[ha_grid[,1]],uni_id = LMEgrid$id[ha_grid[,2]])
 
-Reg$F_type <- ifelse(Reg$Name %in% c("Clupea harengus","Sardina pilchardus",
-                                   "Mallotus villosus",
-                                   "Ammodytes tobianus","Ammodytidae",
-                                   "Ammodytes","Ammodytes marinus",
-                                   "Sprattus sprattus","Argentina silus",
-                                   "Trachurus trachurus","Scomber scombrus",
-                                   "Clupea harengus harengus"),
-                    "pel_stock",Reg$F_type)
+# load ices/fao species code
+ASFIS <- read.csv("../Data/ICES_stocks/ASFIS_sp_2025.csv")
+
+# select all species that have a stock assessment in the area
+spec <- stringr::str_sub(colnames(LMEgrid), 1, 3)
+spec <- setdiff(spec, c("id", "lan","geo","are","oce","LME","dep"))
+spec <- unique(spec)
+
+# now get for each haul and species, if there is a match with a stock
+Reg$Stock <- 0 # no match = 0, match = 1
+
+for (j in 1:length(spec)) {
+  specname   <- ASFIS$Scientific_Name[which(toupper(spec[j]) == ASFIS$Alpha3_Code)]
+  LMEgrid_df <- st_drop_geometry(LMEgrid)
+  cols_with_spec <- grep(paste0("^", spec[j]), colnames(LMEgrid_df))
+  if (length(cols_with_spec) > 1) {
+    LMEgrid_df$new <- rowSums(LMEgrid_df[, cols_with_spec])
+  } else {
+    LMEgrid_df$new <- LMEgrid_df[, cols_with_spec]
+  }
+  
+  areaspec <- subset(LMEgrid_df, LMEgrid_df$new == 1)
+  gridspec <- subset(ha_grid, ha_grid$uni_id %in% areaspec$id)
+  Reg$Stock <-  ifelse(Reg$Name == specname & Reg$Haul_id %in%  gridspec$Haul_id,
+                       1, Reg$Stock)
+}
+
+Reg$F_type <- ifelse(Reg$F_type =="pel" & Reg$Stock == 1,"pel_stock", Reg$F_type)
+Reg$F_type <- ifelse(Reg$F_type =="dem" & Reg$Stock == 1,"dem_stock", Reg$F_type)
 
 # Group and summarize
 Reg <- Reg %>% 
@@ -207,20 +204,14 @@ Reg <- Reg %>%
 # and plot surveyed locations by year
 ggplot(Reg, aes(x = Longitude, y = Latitude)) +  geom_point(size=0.5) + 
   facet_wrap(~ Year)
-```
 
-![](North_Sea_files/figure-commonmark/Stock%20bio.-1.png)
-
-``` r
 # Prepare the spatial grid
 source("../Processing/Get_grids_per_LME.R")
 grid <- get_grid_LME(LME_name = LME_name, grid_size_km = 10)
-plot(grid$geometry, border = "blue", col = NA, main = "10km Grid")
-```
+grid$col <- ifelse(grid$Depth >= -500,"blue","red")
+plot(grid$geometry, border = NA, col = grid$col, main = "10km Grid")
+legend("bottomright",c("in","out"),pch=15,col=c("blue","red"),box.col = "white")
 
-![](North_Sea_files/figure-commonmark/Stock%20bio.-2.png)
-
-``` r
 grid <- grid |> 
   rename(Longitude = lon, Latitude = lat) %>%  # Rename columns for clarity
   st_drop_geometry()      # Drop geometry for data manipulation
@@ -260,24 +251,24 @@ if (!file.exists(paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))) {
   data_type <- "stocks_kg_km2"
   
   # Substitute 0s with the minimum value registered
-  # see table(Reg$stocks_kg_km2)
-  Reg[,data_type] <- ifelse(Reg[,data_type] == 0,
-                              min(Reg[,data_type][Reg[,data_type] > 0]),
-                              Reg[,data_type])
+  # see table(Reg$stocks_kg_km2==0)
+  #Reg[,data_type] <- ifelse(Reg[,data_type] == 0,
+  #                            min(Reg[,data_type][Reg[,data_type] > 0]),
+  #                            Reg[,data_type])
   
   # Create a spatial mesh for the data
   spatial_mesh <- make_mesh(Reg, c("X", "Y"), cutoff = 20)
     
   # Fit a spatial model using sdmTMB
   model_fit <- sdmTMB(
-    stocks_kg_km2 ~ 0 + Yearf + (1|Monthf) + (1|Surveyf) + 
+    stocks_kg_km2 ~ 0 + Yearf + Surveyf + (1|Monthf) + 
       poly(log_depth_std,2,raw = T), 
     data = Reg,                     
     mesh = spatial_mesh,                
-    family = lognormal(link = "log"),        # Lognormal family
-    spatial = "on",                        # Enable spatial random effects
-    time = "Year",                         # Add spatiotemporal random effects
-    spatiotemporal = "iid",                 # iid independent, rw as a random walk
+    family = tweedie(link = "log"),   # good qq-plot, prefered over lognormal (AIC)
+    spatial = "on",                   # Enable spatial random effects
+    time = "Year",                    # Add spatiotemporal random effects
+    spatiotemporal = "iid",           # iid independent, rw as a random walk
   )
   
   # Print model summary for diagnostics
@@ -288,64 +279,12 @@ if (!file.exists(paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))) {
 }
 
 print(model_fit)  
-```
 
-    Spatiotemporal model fit by ML ['sdmTMB']
-    Formula: stocks_kg_km2 ~ 0 + Yearf + (1 | Monthf) + (1 | Surveyf) + poly(log_depth_std, 
-     Formula:     2, raw = T)
-    Mesh: spatial_mesh (isotropic covariance)
-    Time column: Year
-    Data: Reg
-    Family: lognormal(link = 'log')
-     
-                                     coef.est coef.se
-    Yearf1990                            9.40    0.41
-    Yearf1991                            9.47    0.41
-    Yearf1992                            9.70    0.41
-    Yearf1993                            9.70    0.41
-    Yearf1994                            9.39    0.41
-    Yearf1995                            9.54    0.41
-    Yearf1996                            9.31    0.41
-    Yearf1997                            9.33    0.41
-    Yearf1998                            9.33    0.41
-    Yearf1999                            9.47    0.41
-    Yearf2000                            9.66    0.41
-    Yearf2001                            9.56    0.41
-    Yearf2002                            9.37    0.41
-    Yearf2003                            9.25    0.41
-    Yearf2004                            9.13    0.41
-    Yearf2005                            9.06    0.41
-    Yearf2006                            9.03    0.41
-    Yearf2007                            9.13    0.41
-    Yearf2008                            9.13    0.41
-    Yearf2009                            9.14    0.41
-    Yearf2010                            9.25    0.41
-    Yearf2011                            9.39    0.41
-    Yearf2012                            9.29    0.41
-    Yearf2013                            9.27    0.41
-    Yearf2014                            9.58    0.41
-    Yearf2015                            9.58    0.41
-    poly(log_depth_std, 2, raw = T)1     0.03    0.04
-    poly(log_depth_std, 2, raw = T)2    -0.16    0.02
-
-    Random intercepts:
-            Std. Dev.
-    Monthf       0.44
-    Surveyf      0.75
-
-    Dispersion parameter: 0.98
-    Matérn range: 157.97
-    Spatial SD: 0.76
-    Spatiotemporal IID SD: 0.38
-    ML criterion at convergence: 181402.063
-
-    See ?tidy.sdmTMB to extract these values as a data frame.
-
-``` r
 # prepare grid for the prediction
 grid$Yearf <- as.factor(grid$Year)
 grid$Surveyf <- as.factor("NS-IBTS")
 grid$Monthf <- as.factor(2)
+grid <- subset(grid, abs(grid$Depth) < 500)
 
 # Generate predictions using the fitted model and the grid
 predictions <- predict(model_fit, newdata = grid, 
@@ -378,17 +317,14 @@ polygon(x = c(stck_index$Year,rev(stck_index$Year)),
 legend(Start_year,47, legend=c("Stock database", "Trawl survey"),
        col=c("black", "#228833"), lty=c(1,1), cex=1,y.intersp = 1,x.intersp = .5,
        seg.len=1,box.lty=0,bg="transparent")
-```
 
-![](North_Sea_files/figure-commonmark/Stock%20bio.-3.png)
+```
 
 ## Total biomass
 
-Time series of total fish biomass were estimated by LME using data from
-scientific trawl surveys in a similar way as above but now for all
-species in the survey.
+Time series of total fish biomass were estimated by LME using data from scientific trawl surveys in a similar way as above but now for all species in the survey.
 
-``` r
+```{r Tot. biomass}
 # -----------------------------------------------------
 # continue with the above
 
@@ -427,60 +363,7 @@ if (!file.exists(paste0("../Models_sdmtmb/total_",LME_name,".RData"))) {
 }
 
 print(model_fit)  
-```
 
-    Spatiotemporal model fit by ML ['sdmTMB']
-    Formula: Total_kg_km2 ~ 0 + Yearf + (1 | Monthf) + (1 | Surveyf) + poly(log_depth_std, 
-     Formula:     2, raw = T)
-    Mesh: spatial_mesh (isotropic covariance)
-    Time column: Year
-    Data: Reg
-    Family: lognormal(link = 'log')
-     
-                                     coef.est coef.se
-    Yearf1990                            9.51    0.37
-    Yearf1991                            9.58    0.37
-    Yearf1992                            9.80    0.37
-    Yearf1993                            9.80    0.37
-    Yearf1994                            9.52    0.37
-    Yearf1995                            9.66    0.37
-    Yearf1996                            9.44    0.37
-    Yearf1997                            9.52    0.37
-    Yearf1998                            9.51    0.37
-    Yearf1999                            9.63    0.37
-    Yearf2000                            9.78    0.37
-    Yearf2001                            9.70    0.37
-    Yearf2002                            9.54    0.37
-    Yearf2003                            9.41    0.37
-    Yearf2004                            9.40    0.37
-    Yearf2005                            9.35    0.37
-    Yearf2006                            9.33    0.37
-    Yearf2007                            9.44    0.37
-    Yearf2008                            9.40    0.37
-    Yearf2009                            9.41    0.37
-    Yearf2010                            9.44    0.37
-    Yearf2011                            9.57    0.37
-    Yearf2012                            9.51    0.37
-    Yearf2013                            9.47    0.37
-    Yearf2014                            9.79    0.37
-    Yearf2015                            9.78    0.37
-    poly(log_depth_std, 2, raw = T)1     0.00    0.03
-    poly(log_depth_std, 2, raw = T)2    -0.13    0.01
-
-    Random intercepts:
-            Std. Dev.
-    Monthf       0.43
-    Surveyf      0.70
-
-    Dispersion parameter: 0.84
-    Matérn range: 152.26
-    Spatial SD: 0.62
-    Spatiotemporal IID SD: 0.30
-    ML criterion at convergence: 184379.957
-
-    See ?tidy.sdmTMB to extract these values as a data frame.
-
-``` r
 # grid is already prepared for the prediction
 
 # Generate predictions using the fitted model and the grid
@@ -506,17 +389,14 @@ polygon(x = c(bio_index$Year,rev(bio_index$Year)),
         y = c(bio_index$lwr/bio_index$area/1000,
               rev(bio_index$upr/bio_index$area/1000)),
         col = adjustcolor("#228833", 0.2),border=NA)
-```
 
-![](North_Sea_files/figure-commonmark/Tot.%20biomass-1.png)
+```
 
 ## Exploitation rate
 
-Time series of the fish community exploitation rate were estimated by
-LME by dividing catches over total biomass. This was done using SAU and
-survey data, as well as, stock assessment information.
+Time series of the fish community exploitation rate were estimated by LME by dividing catches over total biomass. This was done using SAU and survey data, as well as, stock assessment information.
 
-``` r
+```{r Expl. rate}
 # -----------------------------------------------------
 plot(Catch_SAU$Tonnes/(bio_index$est/1000) ~ Catch_SAU$Year, 
      lty=2,lwd=2,col="red",type="l",ylab="yr-1",las=1,xlab="Year",
@@ -533,18 +413,17 @@ legend(Start_year,1, legend=c("SAU/survey biomass","WAT/survey biomass",
        col=c("red", "blue", "black"), lty=c(2,3,1),
        cex=1,y.intersp = 1,x.intersp = .5,
        seg.len=1,box.lty=0,bg="transparent")
-```
 
-![](North_Sea_files/figure-commonmark/Expl.%20rate-1.png)
+
+```
 
 ## Percentage of demersal fish
 
-The bottom trawl survey data is likely to underestimate the abundance of
-pelagic fish. One way to assess the extent of this underestimation is by
-comparing the percentage of demersal fish in the survey with their
-percentage in the catch.
+The proportion of demersal fish can serve as a calibration point for models incorporating different functional groups. This proportion can be derived from both catch statistics and scientific survey data. However, bottom trawl surveys likely underestimate the abundance of pelagic fish, a bias that is partly addressed by assuming lower catchability for these species.
 
-``` r
+In the catch statistics, demersal fish account for approximately 60% of the total catch, while in the survey data, they represent around 70%. This is a relatively minor discrepancy, which is likely due to the underestimation of pelagic fish in survey data.
+
+```{r perc_demersal}
 # -----------------------------------------------------
 # get it for SAU
 peltype <- c("Small pelagics (<30 cm)","Medium pelagics (30 - 89 cm)",
@@ -586,36 +465,35 @@ plot(pcdem_SAU~dem_SAU$Year,ylim=c(0,100),type="l",col="red",
 lines(pcdem_WAT~dem_WAT$Year,lty=3,lwd=2,col="blue")
 lines(pcdem_SUR~dem_SUR$Year,lty=1,lwd=2,col="black")
 legend(Start_year,35, legend=c("SAU (catch)", "Watson (catch)", "Trawl sur. (biomass)"), col=c("red", "blue","black"), lty=c(2,3,1), cex=1,y.intersp = 1,x.intersp = .5,seg.len=1, box.lty=0,bg="transparent")
-```
 
-![](North_Sea_files/figure-commonmark/perc_demersal-1.png)
+
+```
 
 ## Data output
 
-A .csv file is created with all data outputs. Abbreviations: SAU = Sea
-Around Us, WAT = Watson (2017), SUR = scientific bottom trawl survey
-data, STO = ICES stock assessment database.
+A .csv file is created with all data outputs. Abbreviations: SAU = Sea Around Us, WAT = Watson (2017), SUR = scientific bottom trawl survey data, STO = ICES stock assessment database.
 
-``` r
+```{r csv output}
 # -----------------------------------------------------
 # make dataframe with all information
 
-dat <- data.frame(Year=Catch_SAU$Year,
+dat <- data.frame(Region=LME_name,
+           Year=Catch_SAU$Year,
            Catch_SAU_tonnes = Catch_SAU$Tonnes,
            Catch_WAT_tonnes = Catch_WAT$Tonnes,
            Catch_STO_tonnes = Catch_STO$Tonnes,
            Land_SAU_tonnes = Land_SAU$Tonnes,
            Land_WAT_tonnes = Land_WAT$Tonnes,
            Land_STO_tonnes = Land_STO$Tonnes,
-           Stckbio_lwr_STO_kgkm2 = Bio_STO$Tbio_low,
-           Stckbio_STO_kgkm2 = Bio_STO$Tbio,
-           Stckbio_upr_STO_kgkm2 = Bio_STO$Tbio_high,
-           Stckbio_lwr_SUR_kgkm2 = stck_index$lwr,
-           Stckbio_SUR_kgkm2 = stck_index$est,
-           Stckbio_upr_SUR_kgkm2 = stck_index$upr,
-           Tbio_lwr_SUR_kgkm2 = bio_index$lwr,
-           Tbio_SUR_kgkm2 = bio_index$est,
-           Tbio_upr_SUR_kgkm2 = bio_index$upr,
+           Stckbio_lwr_STO_MTkm2 = Bio_STO$Tbio_low/Bio_STO$area,
+           Stckbio_STO_MTkm2 = Bio_STO$Tbio/Bio_STO$area,
+           Stckbio_upr_STO_MTkm2 = Bio_STO$Tbio_high/Bio_STO$area,
+           Stckbio_lwr_SUR_MTkm2 = stck_index$lwr/stck_index$area/1000,
+           Stckbio_SUR_MTkm2 = stck_index$est/stck_index$area/1000,
+           Stckbio_upr_SUR_MTkm2 = stck_index$upr/stck_index$area/1000,
+           Tbio_lwr_SUR_MTkm2 = bio_index$lwr/bio_index$area/1000,
+           Tbio_SUR_MTkm2 = bio_index$est/bio_index$area/1000,
+           Tbio_upr_SUR_MTkm2 = bio_index$upr/bio_index$area/1000,
            ER_SAU_SUR = Catch_SAU$Tonnes/(bio_index$est/1000),
            ER_WAT_SUR = Catch_WAT$Tonnes/(bio_index$est/1000),
            ER_STO = ER_STO$ER,
@@ -623,5 +501,6 @@ dat <- data.frame(Year=Catch_SAU$Year,
            pcdem_WAT = pcdem_WAT,
            pcdem_SUR = pcdem_SUR)
 
-write.csv(dat, paste0("../Outputs-by-LME/",LME_name,"_",Start_year,"_",End_year,".csv"))
+write.csv(dat, paste0("../Outputs-by-region/",LME_name,".csv"),row.names = F)
+           
 ```

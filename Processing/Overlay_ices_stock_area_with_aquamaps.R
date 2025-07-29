@@ -3,6 +3,7 @@ library(RSQLite)
 library(stringr)
 library(sf)
 library(dplyr)
+library(marmap)
 
 # aqua maps data
 conn <- dbConnect(RSQLite::SQLite(), "Data/Aquamaps/am.db") # Get aquamaps .db file
@@ -127,6 +128,20 @@ grid_mid <- st_centroid(grid)
 dat <- st_intersects(grid_mid, st_make_valid(lme66)) 
 dat <- as.data.frame(dat)
 grid$LME[dat$row.id] <- lme66$LME_NAME[dat[,2]]  
+
+# now get the depth
+bbox <- st_bbox(grid)
+bathy <- getNOAA.bathy(lon1 = bbox["xmin"], lon2 = bbox["xmax"],
+                       lat1 = bbox["ymin"], lat2 = bbox["ymax"])
+grid$depth <- NA
+for(j in 1:nrow(grid)){
+  grid_sf <- st_as_sf(grid$geometry[j])
+  bbox <- st_bbox(grid_sf)
+  lon <- which(as.numeric(rownames(bathy)) >= bbox["xmin"] & as.numeric(rownames(bathy)) <= bbox["xmax"])
+  lat <- which(as.numeric(colnames(bathy)) >= bbox["ymin"] & as.numeric(colnames(bathy)) <= bbox["ymax"])
+  dr <- merge(lon,lat)
+  grid$depth[j] <- mean(bathy[dr[,1],dr[,2]])
+}
 
 save(grid,file="Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
 
