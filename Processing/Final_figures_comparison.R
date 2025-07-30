@@ -1,6 +1,9 @@
 
 setwd("C:/Users/danie/Documents/Online for git/Fish-biomass-catches/Outputs-by-region/")
 
+year_start <- 2005
+year_end <- 2010
+
 library(tidyverse)
 
 # plot biomass tonnes_km2
@@ -16,7 +19,10 @@ df_long <- map_dfr(file_list, ~ {
     )
 })
 
-df_summary <- df_long %>%
+df_filtered <- df_long %>%
+  filter(Year >= year_start, Year <= year_end)
+
+df_summary <- df_filtered %>%
   group_by(Region, measure) %>%
   summarise(
     median = median(value, na.rm = TRUE),
@@ -108,8 +114,7 @@ df_long <- map_dfr(file_list, ~ {
 })
 
 df_filtered <- df_long %>%
-  #filter(Year < 2000)
-  filter(Year >= 2005, Year <= 2010)
+  filter(Year >= year_start, Year <= year_end)
 
 # Step 3: Summarise for each region × measure
 df_summary <- df_filtered %>%
@@ -170,8 +175,7 @@ df_long <- map_dfr(file_list, ~ {
 })
 
 df_filtered <- df_long %>%
-  #filter(Year < 2000)
-  filter(Year >= 2005, Year <= 2010)
+  filter(Year >= year_start, Year <= year_end)
 
 # Step 3: Summarise for each region × measure
 df_summary <- df_filtered %>%
@@ -224,13 +228,4 @@ ggplot()+geom_point(data=df_long,aes(x=Stckbio_STO_MTkm2,y=Stckbio_SUR_MTkm2,col
   xlim(0,50)+ ylim(0,50)+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") + theme_classic()
 
-df_long$diffc <- df_long$Catch_STO_tonnes/df_long$Catch_WAT_tonnes
-df_long$diffs <- df_long$Stckbio_SUR_MTkm2/df_long$Tbio_SUR_MTkm2
 
-test <- subset(df_long,df_long$Year > 2000)
-test <- aggregate(cbind(diffc,diffs)~Region,data=test,FUN=mean)
-plot(test$diffc,test$diffs,ylim=c(0,2),xlim=c(0,2));abline(0,1)
-
-ggplot()+geom_point(data=df_long,aes(x=diffc,y=diffs,col=Region))+
-  xlim(0,1.5)+ ylim(0,1.5)+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") + theme_classic()
