@@ -5,10 +5,8 @@ library(tidyverse)
 
 # plot biomass tonnes_km2
 
-# Step 1: Load all region CSV files
 file_list <- list.files(pattern = "\\.csv$", full.names = TRUE)
 
-# Step 2: Combine and reshape to long format
 df_long <- map_dfr(file_list, ~ {
   read_csv(.x) %>%
     pivot_longer(
@@ -18,7 +16,6 @@ df_long <- map_dfr(file_list, ~ {
     )
 })
 
-# Step 3: Summarise for each region × measure
 df_summary <- df_long %>%
   group_by(Region, measure) %>%
   summarise(
@@ -28,43 +25,71 @@ df_summary <- df_long %>%
     .groups = "drop"
   )
 
-EwE <- data.frame(Region = c("North Sea","Gulf of Alaska",
-                             "Celtic-Biscay Shelf",
-                             "East Bering Sea"),measure = "EwE",
-                  median= c(18.08,43.0,13.50,53.5),lower=NA,upper=NA)
+EwE <- data.frame(
+  Region = c("North Sea", "Gulf of Alaska", "Celtic-Biscay Shelf", "East Bering Sea"),
+  measure = "EwE",
+  median = c(18.08, 43.0, 13.50, 53.5),
+  lower = NA, upper = NA
+)
 
-df_summary <- rbind(df_summary,EwE )
+df_summary <- rbind(df_summary, EwE)
 
-
-# Step 4: Sort regions by average of the 3 medians
 df_summary <- df_summary %>%
   group_by(Region) %>%
-  mutate(mean_median = mean(median,na.rm=T)) %>%
+  mutate(mean_median = mean(median, na.rm = TRUE)) %>%
   ungroup() %>%
   arrange(mean_median) %>%
   mutate(Region = factor(Region, levels = unique(Region)))
 
-# rename
 df_summary <- df_summary %>%
   mutate(measure = recode(measure,
                           "Stckbio_SUR_MTkm2" = "Stock biomass survey",
                           "Stckbio_STO_MTkm2" = "Stock biomass assessment",
-                          "Tbio_SUR_MTkm2"    = "Total survey biomass",
+                          "Tbio_SUR_MTkm2" = "Total survey biomass",
                           "EwE" = "Total EwE biomass"
   ))
 
-# Step 5: Plot
-ggplot(df_summary, aes(x = Region, y = median, color = measure)) +
+# --- Split into two plots ---
+
+# Plot 1: Total biomass and EwE
+df_plot1 <- df_summary %>%
+  filter(measure %in% c("Total survey biomass", "Total EwE biomass"))
+
+p1 <- ggplot(df_plot1, aes(x = Region, y = median, color = measure)) +
   geom_point(position = position_dodge(width = 0.6), size = 3) +
   geom_errorbar(aes(ymin = lower, ymax = upper),
                 position = position_dodge(width = 0.6),
                 width = 0.2) +
-  labs(title = "Fish biomass by Region",
-       x = "Region (sorted from low to high)",
+  labs(title = "Total and EwE Biomass by Region",
+       x = "Region (sorted)",
        y = "Tonnes/km²",
        color = "Metric") +
-  theme_minimal() +  coord_cartesian() + scale_y_log10() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, 150)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 2: Stock biomass survey and assessment
+df_plot2 <- df_summary %>%
+  filter(measure %in% c("Stock biomass survey", "Stock biomass assessment"))
+
+p2 <- ggplot(df_plot2, aes(x = Region, y = median, color = measure)) +
+  geom_point(position = position_dodge(width = 0.6), size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper),
+                position = position_dodge(width = 0.6),
+                width = 0.2) +
+  labs(title = "Stock Biomass (Survey vs Assessment)",
+       x = "Region (sorted)",
+       y = "Tonnes/km²",
+       color = "Metric") +
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, 50)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display plots
+combined_plot <- cowplot::plot_grid(p2, p1, labels = c("A", "B"), ncol = 2, align = "v")
+combined_plot
+ggsave("../Outputs/combined_biomass_plots.pdf", combined_plot,
+       width = 12, height = 5, units = "in")
 
 # -----------------------------------------------------------------------------
 # now get ER
@@ -113,7 +138,7 @@ df_summary <- df_summary %>%
   ))
 
 # Step 5: Plot
-ggplot(df_summary, aes(x = Region, y = median, color = measure)) +
+ER <- ggplot(df_summary, aes(x = Region, y = median, color = measure)) +
   geom_point(position = position_dodge(width = 0.6), size = 3) +
   geom_errorbar(aes(ymin = lower, ymax = upper),
                 position = position_dodge(width = 0.6),
@@ -124,6 +149,9 @@ ggplot(df_summary, aes(x = Region, y = median, color = measure)) +
        color = "Metric") +
   theme_minimal() + ylim(0,1)+
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+ER
+ggsave("../Outputs/Exploitation_rate.pdf", ER,
+       width = 7, height = 5, units = "in")
 
 # ---------------------------------------------------------------------------
 # get perc demersal
@@ -183,3 +211,26 @@ ggplot(df_summary, aes(x = Region, y = median, color = measure)) +
        color = "Metric") +
   theme_minimal() + ylim(0,100)+
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+
+# now some final checks
+df_long <- map_dfr(file_list, ~ {
+  read_csv(.x)})
+
+tr <- aggregate(df_long$Land_SAU_tonnes,by=list(df_long$Region),FUN=mean)
+sum(tr[,2])/10^6/(80*0.85)*100 # % of finfish landings
+
+ggplot()+geom_point(data=df_long,aes(x=Stckbio_STO_MTkm2,y=Stckbio_SUR_MTkm2,col=Region))+
+  xlim(0,50)+ ylim(0,50)+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") + theme_classic()
+
+df_long$diffc <- df_long$Catch_STO_tonnes/df_long$Catch_WAT_tonnes
+df_long$diffs <- df_long$Stckbio_SUR_MTkm2/df_long$Tbio_SUR_MTkm2
+
+test <- subset(df_long,df_long$Year > 2000)
+test <- aggregate(cbind(diffc,diffs)~Region,data=test,FUN=mean)
+plot(test$diffc,test$diffs,ylim=c(0,2),xlim=c(0,2));abline(0,1)
+
+ggplot()+geom_point(data=df_long,aes(x=diffc,y=diffs,col=Region))+
+  xlim(0,1.5)+ ylim(0,1.5)+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") + theme_classic()

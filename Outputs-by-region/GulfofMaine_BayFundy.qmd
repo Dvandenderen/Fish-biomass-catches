@@ -1,5 +1,5 @@
 ---
-title: "Bering Sea and Aleutian Islands biomass and catches"
+title: "Gulf of Maine and Bay of Fundy biomass and catches"
 format: html
 embed-resources: true
 editor: visual
@@ -11,9 +11,9 @@ To collect, compile, and analyze fish community catch data, landings, and biomas
 
 ## Data types
 
--   Catches and landings by LME from Sea Around us Data (version 50.1)
+-   Catches and landings by ME from Sea Around us Data (version 50.1)
 
--   Catches and landings from Watson (2017, [10.1038/sdata.2017.39](10.1038/sdata.2017.39)) aggregated to LME-scale
+-   Catches and landings from Watson (2017, [10.1038/sdata.2017.39](10.1038/sdata.2017.39)) aggregated to ME-scale
 
 -   NOAA stock assessment database (XXXX)."
 
@@ -26,7 +26,8 @@ To collect, compile, and analyze fish community catch data, landings, and biomas
 #| error: false
 
 # define values
-LME_name   <- "East Bering Sea"
+ME_name   <- "Gulf of Maine_Bay of Fundy"
+nam       <- "Gulf of Maine/Bay of Fundy" # include two names to avoid issues with dash
 Start_year <- 1984
 End_year <- 2015
 
@@ -41,14 +42,14 @@ library(sdmTMB)
 
 ## Catches and landings
 
-Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
+Time series of marine fish catches and landings were estimated by ME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
 The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the Gulf of Alaska. Since the ecoregion boundaries overlap with the stock assessment boundaries, there was no need for a spatial allocation of biomass (as done for the ICES stocks in the EU regions).
 
 ```{r Catch & Land. }
 # -----------------------------------------------------
 # load SAU data
-SAU <- read.csv("../Data/SAU/SAU_EastBeringSea_LME.csv")
+SAU <- read.csv("../Data/SAU/SAU_GulfMaine_BFundy_ME.csv")
 SAU <- subset(SAU,SAU$year %in% Start_year:End_year)
 SAU <- subset(SAU, !(SAU$functional_group %in% c("Shrimps","Other demersal invertebrates","Cephalopods","Lobsters, crabs","Krill")))
 
@@ -63,24 +64,26 @@ colnames(Land_SAU) <- c("Year","Tonnes")
 
 # -----------------------------------------------------
 # load Watson
-load("../Data/Watson/Catch_LME_peldem.RData")
-WAT <- subset(comb,comb$LME == LME_name & comb$Year %in% Start_year:End_year)
-Catch_WAT <- aggregate(Totcatch~Year,data=WAT,FUN=sum)
+load("../Data/Watson/GulfMaineBayFundyME.RData")
+WAT <- subset(tot,tot$Year %in% Start_year:End_year)
+Catch_WAT <- WAT[,c("Year","Total_catch")]
 colnames(Catch_WAT) <- c("Year","Tonnes")
-Land_WAT <- aggregate(Reported~Year,data=WAT,FUN=sum)
+Land_WAT <- WAT[,c("Year","Total_reported")]
 colnames(Land_WAT) <- c("Year","Tonnes")
 
 # -----------------------------------------------------
 # load stock assessment reported catches
 load("../Data/NOAA_stocks/AquaMaps_occurence_NOAA_stocks.Rdata")
 load("../Data/NOAA_stocks/Assessment_spatially_allocated.Rdata")
-STO <- subset(grid,grid$LME %in% c(LME_name))
+STO <- subset(grid,grid$ME %in% nam)
 STO <- subset(totdat,totdat$id %in% STO$id & totdat$Year %in% Start_year:End_year)
 #STO$Catch <- ifelse(is.na(STO$Catch),STO$Landings,STO$Catch)
 #STO$Landings <- ifelse(is.na(STO$Landings),STO$Catch,STO$Landings)
 
 Catch_STO <- aggregate(Catch~Year,data=STO,FUN=sum)
 colnames(Catch_STO) <- c("Year","Tonnes")
+#Land_STO <- aggregate(Landings~Year,data=STO,FUN=sum)
+#colnames(Land_STO) <- c("Year","Tonnes")
 
 par(mar = c(5, 4, 3, 3),mfrow=c(1,2))
 plot(Catch_SAU$Tonnes/10^6~Catch_SAU$Year,ylim=c(0,7),type="l",col="red",lwd=2,
@@ -117,13 +120,12 @@ load("../Data/NOAA_stocks/Assessment_spatially_allocated.Rdata")
 # using Ram v4.44 we estimated per stock a conversion between TB and SSB
 # we did not use Ram directly as the time series end before 2010
 conv <- read.csv("../Data/NOAA_stocks/ssb_tb_conversion.csv")
-totdat <- cbind(totdat,conv[match(totdat$Stock,conv$stocklong), 
-                            c("conversion_final")]) 
+totdat <- cbind(totdat,conv[match(totdat$Stock,conv$stocklong), c("conversion_final")]) 
 colnames(totdat)[ncol(totdat)] <- "conversion"
 totdat$Tbio <- totdat$Tbio/totdat$conversion
 
 # now combine
-MEgrid <- subset(grid,grid$LME %in% c(LME_name))
+MEgrid <- subset(grid,grid$ME == nam)
 STO <- subset(totdat,totdat$id %in% MEgrid$id & 
                 totdat$Year %in% Start_year:End_year)
 
@@ -140,8 +142,8 @@ Bio_STO$area <- sum(MEgrid$ocean_sqkm[MEgrid$depth >= -500])
 load("../Data/Trawl_survey/Surveys_hauls_species_LMEs.RData")
 Reg <- subset(trawl,trawl$Year %in% c(Start_year:End_year))
 
-source("../Processing/Get_grids_per_LME.R")
-grid <- get_grid_LME(LME_name = LME_name , grid_size_km = 10)
+source("../Processing/Get_grids_per_ME.R")
+grid <- get_grid_ME(ME_name = nam , grid_size_km = 10)
 
 # match all hauls with the MEgrid
 hauls <- Reg[!duplicated(Reg$Haul_id), ]
@@ -214,7 +216,7 @@ Reg <- Reg %>%
 Reg <- Reg %>%
   pivot_wider(names_from = F_type, 
               values_from = kg_km2_corrected, values_fill = 0) %>% 
-    mutate(Total_kg_km2 = rowSums(dplyr::select(., c("dem","pel", #"pel_stock",
+    mutate(Total_kg_km2 = rowSums(dplyr::select(., c("dem","pel","pel_stock",
                                               "dem_stock")), na.rm = TRUE)) %>%
   as.data.frame()
 
@@ -224,11 +226,8 @@ ggplot(Reg, aes(x = Longitude, y = Latitude)) +  geom_point(size=0.5) +
 
 # Prepare the spatial grid
 grid$col <- ifelse(grid$Depth >= -500,"blue","red")
-grid <- subset(grid,grid$lon < -1 & grid$lon > -179.8)
-grid <- subset(grid,!(grid$lon < -178 & grid$lat < 65))
 plot(grid$geometry, border = NA, col = grid$col, main = "10km Grid")
 legend("bottomright",c("in","out"),pch=15,col=c("blue","red"),box.col = "white")
-
 
 grid <- grid |> 
   rename(Longitude = lon, Latitude = lat) %>%  # Rename columns for clarity
@@ -253,15 +252,15 @@ Reg <- Reg %>%
     Yearf = as.factor(Year),  # Convert Year to factor
     Surveyf = as.factor(Survey_Region)  # Convert Survey to factor
   )
-
+    
 # Convert longitude and latitude in survey data to UTM coordinates
 Reg <- add_utm_columns(Reg, c("Longitude", "Latitude"), units = "km")
 
 # now check if a model is already available
-if (!file.exists(paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))) {
+if (!file.exists(paste0("../Models_sdmtmb/stocks_",ME_name,".RData"))) {
 
   # get stocks biomass 
-  Reg$stocks_kg_km2 <- Reg$dem_stock #+ Reg$pel_stock
+  Reg$stocks_kg_km2 <- Reg$dem_stock + Reg$pel_stock
   
   # get the data type to run the model
   data_type <- "stocks_kg_km2"
@@ -269,7 +268,7 @@ if (!file.exists(paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))) {
   # Substitute 0s with the minimum value registered
   # see table(Reg$stocks_kg_km2 ==0)
   #Reg[,data_type] <- ifelse(Reg[,data_type] == 0,
-  #                            min(Reg[,data_type][Reg[,data_type] > 0]),
+  #                          min(Reg[,data_type][Reg[,data_type] > 0]),
   #                            Reg[,data_type])
   
   # Create a spatial mesh for the data
@@ -277,28 +276,28 @@ if (!file.exists(paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))) {
     
   # Fit a spatial model using sdmTMB
   model_fit <- sdmTMB(
-    stocks_kg_km2 ~ 0 + Yearf +  Surveyf +
+    stocks_kg_km2 ~ 0 + Yearf + Surveyf + 
       poly(log_depth_std,2,raw = T), 
     data = Reg,                     
     mesh = spatial_mesh,                
-    family = tweedie(link = "log"),       # to deal with some zero's
+    family =  tweedie(link = "log"),        # to deal with zero's
     spatial = "on",                        # Enable spatial random effects
     time = "Year",                         # Add spatiotemporal random effects
     spatiotemporal = "iid",                 # iid independent, rw as a random walk
   )
   
   # Print model summary for diagnostics
-  save(model_fit,file= paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))
+  save(model_fit,file= paste0("../Models_sdmtmb/stocks_",ME_name,".RData"))
 
 } else {
-  load(paste0("../Models_sdmtmb/stocks_",LME_name,".RData"))
+  load(paste0("../Models_sdmtmb/stocks_",ME_name,".RData"))
 }
 
 print(model_fit)  
 
 # prepare grid for the prediction
 grid$Yearf <- as.factor(grid$Year)
-grid$Surveyf <- "Eastern Bering Sea"
+grid$Surveyf <- as.factor("Northeast US Spring")
 grid <- subset(grid, abs(grid$Depth) < 500)
 grid <- subset(grid,grid$Year %in% c(unique(Reg$Year)))
 
@@ -310,16 +309,16 @@ predictions <- predict(model_fit, newdata = grid,
 # predictions$data$est <- exp(predictions$data$est)
   
 # Calculate the biomass index with bias correction
-if (!file.exists(paste0("../Models_sdmtmb/Index_stocks_",LME_name,".RData"))) {
+if (!file.exists(paste0("../Models_sdmtmb/Index_stocks_",ME_name,".RData"))) {
   bio_index <- get_index(predictions, area = 100, bias_correct = T)
-  save(bio_index,file= paste0("../Models_sdmtmb/Index_stocks_",LME_name,".RData"))
+  save(bio_index,file= paste0("../Models_sdmtmb/Index_stocks_",ME_name,".RData"))
 } else {
-  load(paste0("../Models_sdmtmb/Index_stocks_",LME_name,".RData"))
+  load(paste0("../Models_sdmtmb/Index_stocks_",ME_name,".RData"))
 }
 stck_index <- bio_index
 stck_index$area <- length(grid$Year[grid$Year == Start_year]) * 100
 
-plot(Bio_STO$Tbio/Bio_STO$area~Bio_STO$Year,ylim=c(0,60),type="l",col="black",
+plot(Bio_STO$Tbio/Bio_STO$area~Bio_STO$Year,ylim=c(0,45),type="l",col="black",
      lwd=2,ylab="tonnes km-2",las=1,xlab="Year",main="Biomass assessed stocks")
 lines(stck_index$est/stck_index$area/1000~stck_index$Year,col="#228833",
       pch=16,lwd=2)
@@ -342,7 +341,7 @@ Time series of total fish biomass were estimated using data from scientific traw
 # continue with the above
 
 # check if a model is already available
-if (!file.exists(paste0("../Models_sdmtmb/total_",LME_name,".RData"))) {
+if (!file.exists(paste0("../Models_sdmtmb/total_",ME_name,".RData"))) {
 
   # get the data type to run the model
   data_type <- "Total_kg_km2"
@@ -358,21 +357,21 @@ if (!file.exists(paste0("../Models_sdmtmb/total_",LME_name,".RData"))) {
     
   # Fit a spatial model using sdmTMB
   model_fit <- sdmTMB(
-    Total_kg_km2 ~ 0 + Yearf + Surveyf +
+    Total_kg_km2 ~ 0 + Yearf +
       poly(log_depth_std,2,raw = T), 
     data = Reg,                     
     mesh = spatial_mesh,                
-    family = tweedie(link = "log"),        # Lognormal family
+    family = lognormal(link = "log"),        # Lognormal family
     spatial = "on",                        # Enable spatial random effects
     time = "Year",                         # Add spatiotemporal random effects
     spatiotemporal = "iid",                 # iid independent, rw as a random walk
   )
   
   # Print model summary for diagnostics
-  save(model_fit,file= paste0("../Models_sdmtmb/total_",LME_name,".RData"))
+  save(model_fit,file= paste0("../Models_sdmtmb/total_",ME_name,".RData"))
 
 } else {
-  load(paste0("../Models_sdmtmb/total_",LME_name,".RData"))
+  load(paste0("../Models_sdmtmb/total_",ME_name,".RData"))
 }
 
 print(model_fit)  
@@ -387,16 +386,16 @@ predictions <- predict(model_fit, newdata = grid,
 # predictions$data$est <- exp(predictions$data$est)
   
 # Calculate the biomass index with bias correction
-if (!file.exists(paste0("../Models_sdmtmb/Index_total_",LME_name,".RData"))) {
+if (!file.exists(paste0("../Models_sdmtmb/Index_total_",ME_name,".RData"))) {
   bio_index <- get_index(predictions, area = 100, bias_correct = T)
-  save(bio_index,file= paste0("../Models_sdmtmb/Index_total_",LME_name,".RData"))
+  save(bio_index,file= paste0("../Models_sdmtmb/Index_total_",ME_name,".RData"))
 } else {
-  load(paste0("../Models_sdmtmb/Index_total_",LME_name,".RData"))
+  load(paste0("../Models_sdmtmb/Index_total_",ME_name,".RData"))
 }
 bio_index$area <- length(grid$Year[grid$Year == Start_year]) * 100
 
 # make plot
-plot(bio_index$est/bio_index$area/1000~bio_index$Year,ylim=c(0,160),type="l",col="#228833",lwd=2,
+plot(bio_index$est/bio_index$area/1000~bio_index$Year,ylim=c(0,85),type="l",col="#228833",lwd=2,
      ylab="tonnes km-2",las=1,xlab="Year",main="Total survey biomass")
 polygon(x = c(bio_index$Year,rev(bio_index$Year)), 
         y = c(bio_index$lwr/bio_index$area/1000,
@@ -413,13 +412,14 @@ Time series of the fish community exploitation rate were estimated by ME by divi
 # -----------------------------------------------------
 Catch_SAU_sub <- subset(Catch_SAU,Catch_SAU$Year %in% bio_index$Year)
 Catch_SAU_sub$ER <- Catch_SAU_sub$Tonnes/(bio_index$est/1000)
-plot(Catch_SAU_sub$ER ~ Catch_SAU_sub$Year, lty=2,lwd=2,col="red",type="l",ylab="yr-1",las=1,xlab="Year",main="Exploitation rate",ylim=c(0,1))
+plot(Catch_SAU_sub$ER ~ Catch_SAU_sub$Year, lty=2,lwd=2,col="red",type="l",ylab="yr-1",las=1,xlab="Year",
+     main="Exploitation rate",ylim=c(0,1))
 
 Catch_WAT_sub <- subset(Catch_WAT,Catch_WAT$Year %in% bio_index$Year)
 Catch_WAT_sub$ER <- Catch_WAT_sub$Tonnes/(bio_index$est/1000)
 lines(Catch_WAT_sub$ER ~ Catch_WAT_sub$Year,lty=3,lwd=2,col="blue")
 
-lines(Catch_STO$Tonnes/Bio_STO$Tbio~Catch_STO$Year,lty=1,lwd=2,col="black")
+lines(Catch_STO$Tonnes/Bio_STO$Tbio~Bio_STO$Year,lty=1,lwd=2,col="black")
 legend(Start_year,1, legend=c("SAU/survey biomass","WAT/survey biomass",
                               "Stock database"),
        col=c("red", "blue", "black"), lty=c(2,3,1),
@@ -450,26 +450,21 @@ colnames(dem_SAU) <- c("Year","Tonnes")
 pcdem_SAU <- dem_SAU$Tonnes/ (pel_SAU$Tonnes + dem_SAU$Tonnes) * 100
 
 # get if for Watson
-pel_WAT <- subset(WAT,WAT$Ftype =="pel")
-pel_WAT <- aggregate(Totcatch~Year,data=pel_WAT,FUN=sum)
-colnames(pel_WAT) <- c("Year","Tonnes")
-dem_WAT <- subset(WAT,WAT$Ftype =="dem")
-dem_WAT <- aggregate(Totcatch~Year,data=dem_WAT,FUN=sum)
-colnames(dem_WAT) <- c("Year","Tonnes")
-pcdem_WAT <- dem_WAT$Tonnes/ (pel_WAT$Tonnes + dem_WAT$Tonnes) * 100
+pcdem_WAT <- WAT$Catch_dem/ (WAT$Total_catch) * 100
 
 # get it for the survey - shortcut
   agg <- aggregate(
-    x = list(dem = Reg$dem+Reg$dem_stock, pel = Reg$pel),
+    x = list(dem = Reg$dem+Reg$dem_stock, pel = Reg$pel+Reg$pel_stock),
     by = list(Year = Reg$Year),
     FUN = sum)
 agg$pcdem_SUR <- agg$dem/ (agg$dem + agg$pel) * 100
 
 plot(pcdem_SAU~dem_SAU$Year,ylim=c(0,100),type="l",col="red",
      lwd=2,lty=2,ylab="%",las=1,xlab="Year", main="% demersal in total fish")
-lines(pcdem_WAT~dem_WAT$Year,lty=3,lwd=2,col="blue")
+lines(pcdem_WAT~WAT$Year,lty=3,lwd=2,col="blue")
 lines(agg$pcdem_SUR~agg$Year,lty=1,lwd=2,col="black")
 legend(Start_year,35, legend=c("SAU (catch)", "Watson (catch)", "Trawl sur. (biomass)"), col=c("red", "blue","black"), lty=c(2,3,1), cex=1,y.intersp = 1,x.intersp = .5,seg.len=1, box.lty=0,bg="transparent")
+
 
 ```
 
@@ -492,7 +487,7 @@ Catch_WAT_sub <- merge(all_years, Catch_WAT_sub, by = "Year", all.x = TRUE)
 Catch_SAU_sub <- merge(all_years, Catch_SAU_sub, by = "Year", all.x = TRUE)
 agg <- merge(all_years, agg, by = "Year", all.x = TRUE)
 
-dat <- data.frame(Region = LME_name, 
+dat <- data.frame(Region = ME_name, 
            Year=Catch_SAU$Year,
            Catch_SAU_tonnes = Catch_SAU$Tonnes,
            Catch_WAT_tonnes = Catch_WAT$Tonnes,
@@ -516,6 +511,6 @@ dat <- data.frame(Region = LME_name,
            pcdem_WAT = pcdem_WAT,
            pcdem_SUR = agg$pcdem_SUR)
 
-write.csv(dat, paste0("../Outputs-by-Region/",LME_name,".csv"))
+write.csv(dat, paste0("../Outputs-by-Region/",ME_name,".csv"))
            
 ```

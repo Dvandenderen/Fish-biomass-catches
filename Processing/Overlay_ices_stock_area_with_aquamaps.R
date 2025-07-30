@@ -145,6 +145,16 @@ for(j in 1:nrow(grid)){
 
 save(grid,file="Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
 
+# Link to ME for each mid-point and estimate fraction of grid on land  
+grid$ME <- NA
+meow <- st_read("Data/MEOW_shapefiles/meow_ecos.shp")
+grid_mid <- st_centroid(grid)
+dat <- st_intersects(grid_mid, st_make_valid(meow)) 
+dat <- as.data.frame(dat)
+grid$ME[dat$row.id] <- meow$ECOREGION[dat[,2]]  
+
+save(grid,file="Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
+
 # ----------------------------------------------------------------
 load("Data/ICES_stocks/AquaMaps_occurence_ICES_stocks.Rdata")
 source("Processing/Get_stocks_ices.R") # load the stocks

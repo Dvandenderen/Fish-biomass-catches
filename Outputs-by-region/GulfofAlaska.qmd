@@ -450,7 +450,7 @@ pcdem_WAT <- WAT$Catch_dem/ (WAT$Total_catch) * 100
 
 # get it for the survey - shortcut
   agg <- aggregate(
-    x = list(dem = Reg$dem, pel = Reg$pel),
+    x = list(dem = Reg$dem + Reg$dem_stock, pel = Reg$pel),
     by = list(Year = Reg$Year),
     FUN = sum)
 agg$pcdem_SUR <- agg$dem/ (agg$dem + agg$pel) * 100

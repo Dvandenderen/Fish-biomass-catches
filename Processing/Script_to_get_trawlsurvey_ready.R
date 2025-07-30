@@ -79,3 +79,33 @@ colnames(trawl)[ncol(trawl)] <- "LME"
 
 save(trawl,file="Data/Trawl_survey/Surveys_hauls_species_LMEs.RData")
 
+#--------------------------------------------------------------------------------
+# now get overlap between survey and LME66 shapefile
+meow <- read_sf("Data/MEOW_shapefiles/meow_ecos.shp")
+
+trawl$uniq <- paste(trawl$Longitude, trawl$Latitude, sep = "_")
+coords_uni <- unique(trawl$uniq)  
+t <- strsplit(coords_uni, "_") # Split the coordinates
+coords <- matrix(unlist(t), ncol = 2, byrow = TRUE)
+
+# Convert the coordinates to numeric
+coords <- as.data.frame(coords)
+coords[, 1] <- as.numeric(as.character(coords[, 1]))
+coords[, 2] <- as.numeric(as.character(coords[, 2]))
+coords[, 3] <- coords_uni
+
+# Convert the coordinates to sf object
+coords_sf <- st_as_sf(coords, coords = c(1, 2), crs = st_crs(meow))
+
+# Perform a spatial join with the grid (assuming grid_master is an sf object)
+dat <- st_intersects(coords_sf, meow)
+dat <- as.data.frame(dat)
+dat$uniq <- coords_sf$V3[dat$row.id]
+dat$ME <- meow$ECOREGION[dat$col.id]
+
+# Merge the 'uni_cell' into the original trawl data
+trawl <- cbind(trawl, dat[match(trawl$uniq,dat$uniq), c("ME")])
+colnames(trawl)[ncol(trawl)] <- "ME"
+
+save(trawl,file="Data/Trawl_survey/Surveys_hauls_species_LMEs_MEs.RData")
+

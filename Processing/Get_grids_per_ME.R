@@ -70,6 +70,7 @@ get_grid_ME <- function(ME_name, grid_size_km = 10) {
   grid_sf$lat <- coords[,2]
   
   # Load depth data
+  ME_name <- ifelse(ME_name == "Gulf of Maine/Bay of Fundy","Gulf of Maine_Bay of Fundy",ME_name)
   depth_file <- paste0("../Data/Depths_ME_ETOPO_extracted/", ME_name, "_depth.RData")
   if (file.exists(depth_file)) {
     load(depth_file)  # Loads 'Depth' object
@@ -91,6 +92,5 @@ get_grid_ME <- function(ME_name, grid_size_km = 10) {
     warning("Depth data not found for this ME.")
     grid_sf$Depth <- NA
   }
-  
   return(grid_sf)
 }
