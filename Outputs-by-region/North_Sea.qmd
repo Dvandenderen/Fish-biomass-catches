@@ -41,9 +41,9 @@ library(sdmTMB)
 
 ## Catches and landings
 
-Time series of marine fish catches and landings were estimated by LME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
+Time series of marine fish catches and landings were estimated using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
-The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, landings were proportionally adjusted based on the degree of overlap. For each stock, landings were allocated only to areas where the species occur. For example, landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
+The catch and landings figures include a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap with the area. In such cases, catches/landings were proportionally adjusted based on the degree of overlap. For each stock, catches/landings were allocated only to areas where the species occur. For example, catches/landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
 ```{r Catch & Land. }
 # -----------------------------------------------------
@@ -101,9 +101,9 @@ lines(Land_STO$Tonnes/10^6~Land_STO$Year,col="black",lwd=2,lty=1)
 
 ## Biomass of assessed stocks
 
-Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the North Sea. Some of these stocks have spatial assessment areas that only partially overlap with the North Sea. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
+Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
-The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided.
+The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided. For each of these species, we selected only the hauls that overlap with the stock assessment area for that species.
 
 ```{r Stock bio.}
 #| warning: false
@@ -158,7 +158,7 @@ ASFIS <- read.csv("../Data/ICES_stocks/ASFIS_sp_2025.csv")
 
 # select all species that have a stock assessment in the area
 spec <- stringr::str_sub(colnames(LMEgrid), 1, 3)
-spec <- setdiff(spec, c("id", "lan","geo","are","oce","LME","dep"))
+spec <- setdiff(spec, c("id", "lan","geo","are","oce","LME","dep","ME"))
 spec <- unique(spec)
 
 # now get for each haul and species, if there is a match with a stock
@@ -210,6 +210,8 @@ source("../Processing/Get_grids_per_LME.R")
 grid <- get_grid_LME(LME_name = LME_name, grid_size_km = 10)
 grid$col <- ifelse(grid$Depth >= -500,"blue","red")
 plot(grid$geometry, border = NA, col = grid$col, main = "10km Grid")
+unique_hauls <- Reg[!duplicated(Reg$Haul_id), ]
+points(unique_hauls$Longitude, unique_hauls$Latitude)
 legend("bottomright",c("in","out"),pch=15,col=c("blue","red"),box.col = "white")
 
 grid <- grid |> 
@@ -322,7 +324,7 @@ legend(Start_year,47, legend=c("Stock database", "Trawl survey"),
 
 ## Total biomass
 
-Time series of total fish biomass were estimated by LME using data from scientific trawl surveys in a similar way as above but now for all species in the survey.
+Time series of total fish biomass were estimated by LME using data from scientific trawl surveys in a similar way as above but now for all fish in the survey.
 
 ```{r Tot. biomass}
 # -----------------------------------------------------
@@ -394,7 +396,7 @@ polygon(x = c(bio_index$Year,rev(bio_index$Year)),
 
 ## Exploitation rate
 
-Time series of the fish community exploitation rate were estimated by LME by dividing catches over total biomass. This was done using SAU and survey data, as well as, stock assessment information.
+Time series of the fish community exploitation rate were estimated by LME by dividing catches over total biomass. This was done using catch data from SAU and Watson, survey data and stock assessment information.
 
 ```{r Expl. rate}
 # -----------------------------------------------------

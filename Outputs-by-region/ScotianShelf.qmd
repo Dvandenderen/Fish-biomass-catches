@@ -1,5 +1,5 @@
 ---
-title: "Gulf of Alaska biomass and catches"
+title: "Scotian Shelf biomass and catches"
 format: html
 embed-resources: true
 editor: visual
@@ -26,7 +26,7 @@ To collect, compile, and analyze fish community catch data, landings, and biomas
 #| error: false
 
 # define values
-ME_name   <- "Gulf of Alaska"
+ME_name   <- "Scotian Shelf"
 Start_year <- 1984
 End_year <- 2015
 
@@ -43,12 +43,12 @@ library(sdmTMB)
 
 Time series of marine fish catches and landings were estimated by ME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
-The catch figure includes a time series of catch for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap with the area. In such cases, catch were proportionally adjusted based on the degree of overlap. For each stock, catch were allocated only to areas where the species occur. For example, catch from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
+Too little information was available to include the combined catches and landings of fish stock assessments.
 
 ```{r Catch & Land. }
 # -----------------------------------------------------
 # load SAU data
-SAU <- read.csv("../Data/SAU/SAU_GulfAlaska.csv")
+SAU <- read.csv("../Data/SAU/SAU_ScotianShelf_ME.csv")
 SAU <- subset(SAU,SAU$year %in% Start_year:End_year)
 SAU <- subset(SAU, !(SAU$functional_group %in% c("Shrimps","Other demersal invertebrates","Cephalopods","Lobsters, crabs","Krill")))
 
@@ -63,143 +63,49 @@ colnames(Land_SAU) <- c("Year","Tonnes")
 
 # -----------------------------------------------------
 # load Watson
-load("../Data/Watson/GulfofAlaskaME.RData")
+load("../Data/Watson/ScotianShelfME.RData")
 WAT <- subset(tot,tot$Year %in% Start_year:End_year)
 Catch_WAT <- WAT[,c("Year","Total_catch")]
 colnames(Catch_WAT) <- c("Year","Tonnes")
 Land_WAT <- WAT[,c("Year","Total_reported")]
 colnames(Land_WAT) <- c("Year","Tonnes")
 
-# -----------------------------------------------------
-# load stock assessment reported catches
-load("../Data/NOAA_stocks/AquaMaps_occurence_NOAA_stocks.Rdata")
-load("../Data/NOAA_stocks/Assessment_spatially_allocated.Rdata")
-STO <- subset(grid,grid$ME %in% ME_name)
-STO <- subset(totdat,totdat$id %in% STO$id & totdat$Year %in% Start_year:End_year)
-#STO$Catch <- ifelse(is.na(STO$Catch),STO$Landings,STO$Catch)
-#STO$Landings <- ifelse(is.na(STO$Landings),STO$Catch,STO$Landings)
-
-Catch_STO <- aggregate(Catch~Year,data=STO,FUN=sum)
-colnames(Catch_STO) <- c("Year","Tonnes")
-#Land_STO <- aggregate(Landings~Year,data=STO,FUN=sum)
-#colnames(Land_STO) <- c("Year","Tonnes")
-
 par(mar = c(5, 4, 3, 3),mfrow=c(1,2))
-plot(Catch_SAU$Tonnes/10^6~Catch_SAU$Year,ylim=c(0,7),type="l",col="red",lwd=2,
+plot(Catch_SAU$Tonnes/10^6~Catch_SAU$Year,ylim=c(0,1),type="l",col="red",lwd=2,
      ylab="Catch (million tonnes y-1)",las=1,xlab="Year",main="Catch",lty=2)
 lines(Catch_WAT$Tonnes/10^6~Catch_WAT$Year,col="blue",lwd=2,lty=3)
-lines(Catch_STO$Tonnes/10^6~Catch_STO$Year,col="black",lwd=2,lty=1)
-legend(Start_year,7.3, legend=c("SAU", "Watson", "Ass. stocks"), col=c("red", "blue","black"), lty=c(2,3,1), cex=1,y.intersp = 1,x.intersp = .5,seg.len=1, box.lty=0,bg="transparent")
+legend(Start_year,7.3, legend=c("SAU", "Watson"), col=c("red", "blue"), lty=c(2,3,1), cex=1,y.intersp = 1,x.intersp = .5,seg.len=1, box.lty=0,bg="transparent")
 
-plot(Land_SAU$Tonnes/10^6~Land_SAU$Year,ylim=c(0,7),type="l",col="red",lwd=2,
+plot(Land_SAU$Tonnes/10^6~Land_SAU$Year,ylim=c(0,1),type="l",col="red",lwd=2,
      ylab="Landings (million tonnes y-1)",las=1,xlab="Year",main="Landings",lty=2)
 lines(Land_WAT$Tonnes/10^6~Land_WAT$Year,col="blue",lwd=2,lty=3)
 
-
 ```
 
-## Biomass of assessed stocks
+## Total biomass
 
-Time series of assessed fish biomass were estimated using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
+Time series of total fish biomass were estimated using data from scientific trawl surveys in a similar way as above but now for all fish in the survey.
 
-The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided. For each of these species, we selected only the hauls that overlap with the stock assessment area for that species.
-
-```{r Stock bio.}
-#| warning: false
-#| message: false
-#| error: false
-
+```{r Tot. biomass}
 # -----------------------------------------------------
-# load biomass from stock assessments
-load("../Data/NOAA_stocks/AquaMaps_occurence_NOAA_stocks.Rdata")
-load("../Data/NOAA_stocks/Assessment_spatially_allocated.Rdata")
-
-# now many stocks in US are reporting SSB/mature biomass; 
-# this is problematic for the comparison (e.g. walleye pollock)
-# using Ram v4.44 we estimated per stock a conversion between TB and SSB
-# we did not use Ram directly as the time series end before 2010
-conv <- read.csv("../Data/NOAA_stocks/ssb_tb_conversion.csv")
-totdat <- cbind(totdat,conv[match(totdat$Stock,conv$stocklong), c("conversion_final")]) 
-colnames(totdat)[ncol(totdat)] <- "conversion"
-totdat$Tbio <- totdat$Tbio/totdat$conversion
-
-# now combine
-MEgrid <- subset(grid,grid$ME == ME_name)
-STO <- subset(totdat,totdat$id %in% MEgrid$id & 
-                totdat$Year %in% Start_year:End_year)
-
-# add the area to be able to estimate biomass in mass per area
-STO <- cbind(STO,grid[match(STO$id,grid$id), c("area_sqkm","ocean_sqkm","depth")])
-
-# estimate total biomass and get total area
-STO <- subset(STO,STO$depth >= -500)
-Bio_STO <- aggregate(Tbio~Year,data=STO,FUN=sum)
-Bio_STO$area <- sum(MEgrid$ocean_sqkm[MEgrid$depth >= -500])
-
-# -----------------------------------------------------
-# load scientific survey biomass
+# load survey data
 load("../Data/Trawl_survey/Surveys_hauls_species_LMEs.RData")
 Reg <- subset(trawl,trawl$Year %in% c(Start_year:End_year))
+
+#only select Maritimes Summer
+Reg <- subset(Reg,Reg$Survey_Region %in% c("Maritimes Summer"))
 
 source("../Processing/Get_grids_per_ME.R")
 grid <- get_grid_ME(ME_name = ME_name , grid_size_km = 10)
 
-# match all hauls with the MEgrid
+# match all hauls with the grid
 hauls <- Reg[!duplicated(Reg$Haul_id), ]
 hauls <- st_as_sf(hauls, coords = c("Longitude", "Latitude"), crs = 4326)
 ha_grid <- st_intersects(hauls,grid)
 ha_grid <- as.data.frame(ha_grid)
 
-# subset Reg to only get GoA
+# subset Reg to only get
 Reg <- subset(Reg,Reg$Haul_id %in% c(hauls$Haul_id[ha_grid[,1]]))
-
-# now get for each haul and species, if there is a match with a stock
-Reg$Stock <- 0 # no match = 0, match = 1
-
-# get fishnames
-fishnames <- read.csv("../Data/NOAA_stocks/common_to_scientific_name_cleaned.csv")
-name_clean <- gsub("\\.", " ", sub("\\.{3}.*", "", names(st_drop_geometry(MEgrid))))
-name_clean <- data.frame(common=name_clean)
-name_clean <- cbind(name_clean,fishnames[match(name_clean$common,fishnames$ComName), c("Species")])
-colnames(name_clean)[ncol(name_clean)] <- "Latin"
-
-# and match the species per haul to define if they are stocks in that grid cell
-Reg$reg_keys <- paste(Reg$Haul_id, Reg$Name)
-
-Reg_sf <- st_as_sf(Reg, coords = c("Longitude", "Latitude"), crs = 4326)
-intersections <- as.data.frame(st_intersects(Reg_sf, MEgrid))
-Reg_sf$inout  <-  NA
-Reg_sf$inout[intersections$row.id] <- MEgrid$id[intersections$col.id]
-Reg_sf <- subset(Reg_sf,!(is.na(Reg_sf$inout)))
-cells  <- unique(Reg_sf$inout)
-
-for (j in 1:length(cells)) {
-  dt <- subset(Reg_sf,Reg_sf$inout == cells[j])
-  me_sub <- subset(MEgrid,MEgrid$id == cells[j])
-  me_sub <- st_drop_geometry(me_sub)
-  
-  # For each name in dt, check if any column with that name in MEgrid has a 1
-  dt$Stock_flag <- sapply(dt$Name, function(nm) {
-    # Get all columns in MEgrid with species name in column name
-    colmatch <- grep(nm, name_clean$Latin, fixed = TRUE)
-    
-    if (length(colmatch) == 0) return(0)
-    
-    # Check if any intersected cell has a 1 in those columns
-    any(me_sub[, colmatch] == 1, na.rm = TRUE)
-  })
-  
-  # Only keep rows where there was a 1 match
-  dt <- dt[dt$Stock_flag == 1, ]
-  
-  if (nrow(dt) > 0) {
-    dt_keys  <- paste(dt$Haul_id, dt$Name)
-    Reg$Stock <- ifelse(Reg$reg_keys %in% dt_keys, 1,Reg$Stock)
-  }
-}
-
-Reg$F_type <- ifelse(Reg$F_type =="pel" & Reg$Stock == 1,"pel_stock", Reg$F_type)
-Reg$F_type <- ifelse(Reg$F_type =="dem" & Reg$Stock == 1,"dem_stock", Reg$F_type)
 
 # Group and summarize
 Reg <- Reg %>% 
@@ -215,8 +121,7 @@ Reg <- Reg %>%
 Reg <- Reg %>%
   pivot_wider(names_from = F_type, 
               values_from = kg_km2_corrected, values_fill = 0) %>% 
-    mutate(Total_kg_km2 = rowSums(select(., c("dem","pel", #"pel_stock",
-                                              "dem_stock")), na.rm = TRUE)) %>%
+    mutate(Total_kg_km2 = rowSums(dplyr::select(., c("dem","pel")), na.rm = TRUE)) %>%
   as.data.frame()
 
 # and plot surveyed locations by year
@@ -250,93 +155,11 @@ grid <- grid |> na.omit()
 # Prepare the survey dataset
 Reg <- Reg %>%
   mutate(log_depth_std = scale(log(Bottom_depth))[, 1],  # Standardize bottom depth
-    Yearf = as.factor(Year))  # Convert Year to factor
-
+    Yearf = as.factor(Year)  # Convert Year to factor
+  )
+    
 # Convert longitude and latitude in survey data to UTM coordinates
 Reg <- add_utm_columns(Reg, c("Longitude", "Latitude"), units = "km")
-
-# now check if a model is already available
-if (!file.exists(paste0("../Models_sdmtmb/stocks_",ME_name,".RData"))) {
-
-  # get stocks biomass 
-  Reg$stocks_kg_km2 <- Reg$dem_stock #+ Reg$pel_stock
-  
-  # get the data type to run the model
-  data_type <- "stocks_kg_km2"
-  
-  # Substitute 0s with the minimum value registered
-  # see table(Reg$stocks_kg_km2 ==0)
-  #Reg[,data_type] <- ifelse(Reg[,data_type] == 0,
-  #                          min(Reg[,data_type][Reg[,data_type] > 0]),
-  #                            Reg[,data_type])
-  
-  # Create a spatial mesh for the data
-  spatial_mesh <- make_mesh(Reg, c("X", "Y"), cutoff = 20)
-    
-  # Fit a spatial model using sdmTMB
-  model_fit <- sdmTMB(
-    stocks_kg_km2 ~ 0 + Yearf +  
-      poly(log_depth_std,2,raw = T), 
-    data = Reg,                     
-    mesh = spatial_mesh,                
-    family =  tweedie(link = "log"),        # to deal with zero's
-    spatial = "on",                        # Enable spatial random effects
-    time = "Year",                         # Add spatiotemporal random effects
-    spatiotemporal = "iid",                 # iid independent, rw as a random walk
-  )
-  
-  # Print model summary for diagnostics
-  save(model_fit,file= paste0("../Models_sdmtmb/stocks_",ME_name,".RData"))
-
-} else {
-  load(paste0("../Models_sdmtmb/stocks_",ME_name,".RData"))
-}
-
-print(model_fit)  
-
-# prepare grid for the prediction
-grid$Yearf <- as.factor(grid$Year)
-grid <- subset(grid, abs(grid$Depth) < 500)
-grid <- subset(grid,grid$Year %in% c(unique(Reg$Year)))
-
-# Generate predictions using the fitted model and the grid
-predictions <- predict(model_fit, newdata = grid, 
-                       return_tmb_object = TRUE) #kg/km2
-
-# make sure that output is back-transformed, if used spatially --> 
-# predictions$data$est <- exp(predictions$data$est)
-  
-# Calculate the biomass index with bias correction
-if (!file.exists(paste0("../Models_sdmtmb/Index_stocks_",ME_name,".RData"))) {
-  bio_index <- get_index(predictions, area = 100, bias_correct = T)
-  save(bio_index,file= paste0("../Models_sdmtmb/Index_stocks_",ME_name,".RData"))
-} else {
-  load(paste0("../Models_sdmtmb/Index_stocks_",ME_name,".RData"))
-}
-stck_index <- bio_index
-stck_index$area <- length(grid$Year[grid$Year == Start_year]) * 100
-
-plot(Bio_STO$Tbio/Bio_STO$area~Bio_STO$Year,ylim=c(0,45),type="l",col="black",
-     lwd=2,ylab="tonnes km-2",las=1,xlab="Year",main="Biomass assessed stocks")
-lines(stck_index$est/stck_index$area/1000~stck_index$Year,col="#228833",
-      pch=16,lwd=2)
-polygon(x = c(stck_index$Year,rev(stck_index$Year)), 
-        y = c(stck_index$lwr/stck_index$area/1000,
-              rev(stck_index$upr/stck_index$area/1000)),
-        col = adjustcolor("#228833", 0.2),border=NA)
-legend(Start_year,65, legend=c("Stock database", "Trawl survey"),
-       col=c("black", "#228833"), lty=c(1,1), cex=1,y.intersp = 1,x.intersp = .5,
-       seg.len=1,box.lty=0,bg="transparent")
-
-```
-
-## Total biomass
-
-Time series of total fish biomass were estimated using data from scientific trawl surveys in a similar way as above but now for all fish in the survey.
-
-```{r Tot. biomass}
-# -----------------------------------------------------
-# continue with the above
 
 # check if a model is already available
 if (!file.exists(paste0("../Models_sdmtmb/total_",ME_name,".RData"))) {
@@ -355,7 +178,7 @@ if (!file.exists(paste0("../Models_sdmtmb/total_",ME_name,".RData"))) {
     
   # Fit a spatial model using sdmTMB
   model_fit <- sdmTMB(
-    Total_kg_km2 ~ 0 + Yearf +
+    Total_kg_km2 ~ 0 + Yearf  + 
       poly(log_depth_std,2,raw = T), 
     data = Reg,                     
     mesh = spatial_mesh,                
@@ -374,7 +197,10 @@ if (!file.exists(paste0("../Models_sdmtmb/total_",ME_name,".RData"))) {
 
 print(model_fit)  
 
-# grid is already prepared for the prediction
+# prepare grid for the prediction
+grid$Yearf <- as.factor(grid$Year)
+grid <- subset(grid, abs(grid$Depth) < 500)
+grid <- subset(grid,grid$Year %in% c(unique(Reg$Year)))
 
 # Generate predictions using the fitted model and the grid
 predictions <- predict(model_fit, newdata = grid, 
@@ -404,7 +230,7 @@ polygon(x = c(bio_index$Year,rev(bio_index$Year)),
 
 ## Exploitation rate
 
-Time series of the fish community exploitation rate were estimated by ME by dividing catches over total biomass. This was done using catch data from SAU and Watson, survey data and stock assessment information.
+Time series of the fish community exploitation rate were estimated by ME by dividing catches over total biomass. This was done using catch data from SAU and Watson and biomass data from the surveys.
 
 ```{r Expl. rate}
 # -----------------------------------------------------
@@ -417,21 +243,16 @@ Catch_WAT_sub <- subset(Catch_WAT,Catch_WAT$Year %in% bio_index$Year)
 Catch_WAT_sub$ER <- Catch_WAT_sub$Tonnes/(bio_index$est/1000)
 lines(Catch_WAT_sub$ER ~ Catch_WAT_sub$Year,lty=3,lwd=2,col="blue")
 
-lines(Catch_STO$Tonnes/Bio_STO$Tbio~Bio_STO$Year,lty=1,lwd=2,col="black")
-legend(Start_year,1, legend=c("SAU/survey biomass","WAT/survey biomass",
-                              "Stock database"),
-       col=c("red", "blue", "black"), lty=c(2,3,1),
+legend(Start_year,1, legend=c("SAU/survey biomass","WAT/survey biomass"),
+       col=c("red", "blue"), lty=c(2,3,1),
        cex=1,y.intersp = 1,x.intersp = .5,
        seg.len=1,box.lty=0,bg="transparent")
-
 
 ```
 
 ## Percentage of demersal fish
 
 The proportion of demersal fish can serve as a calibration point for models incorporating different functional groups. This proportion can be derived from both catch statistics and scientific survey data. However, bottom trawl surveys likely underestimate the abundance of pelagic fish, a bias that is partly addressed by assuming lower catchability for these species.
-
-In all Gulf of Alaska statistics, demersal fish account for approximately 90% of the total catch.
 
 ```{r perc_demersal}
 # -----------------------------------------------------
@@ -452,7 +273,7 @@ pcdem_WAT <- WAT$Catch_dem/ (WAT$Total_catch) * 100
 
 # get it for the survey - shortcut
   agg <- aggregate(
-    x = list(dem = Reg$dem + Reg$dem_stock, pel = Reg$pel),
+    x = list(dem = Reg$dem, pel = Reg$pel),
     by = list(Year = Reg$Year),
     FUN = sum)
 agg$pcdem_SUR <- agg$dem/ (agg$dem + agg$pel) * 100
@@ -479,7 +300,6 @@ A .csv file is created with all data outputs. Abbreviations: SAU = Sea Around Us
 all_years <- data.frame(Year = seq(Start_year,End_year))
 
 # Merge to fill in missing years with NA
-stck_index <- merge(all_years, stck_index, by = "Year", all.x = TRUE)
 bio_index <- merge(all_years, bio_index, by = "Year", all.x = TRUE)
 Catch_WAT_sub <- merge(all_years, Catch_WAT_sub, by = "Year", all.x = TRUE)
 Catch_SAU_sub <- merge(all_years, Catch_SAU_sub, by = "Year", all.x = TRUE)
@@ -489,22 +309,22 @@ dat <- data.frame(Region = ME_name,
            Year=Catch_SAU$Year,
            Catch_SAU_tonnes = Catch_SAU$Tonnes,
            Catch_WAT_tonnes = Catch_WAT$Tonnes,
-           Catch_STO_tonnes = Catch_STO$Tonnes,
+           Catch_STO_tonnes = NA,
            Land_SAU_tonnes = Land_SAU$Tonnes,
            Land_WAT_tonnes = Land_WAT$Tonnes,
            Land_STO_tonnes = NA,
            Stckbio_lwr_STO_MTkm2 = NA,
-           Stckbio_STO_MTkm2 = Bio_STO$Tbio/Bio_STO$area,
+           Stckbio_STO_MTkm2 = NA,
            Stckbio_upr_STO_MTkm2 = NA,
-           Stckbio_lwr_SUR_MTkm2 = stck_index$lwr/stck_index$area/1000,
-           Stckbio_SUR_MTkm2 = stck_index$est/stck_index$area/1000,
-           Stckbio_upr_SUR_MTkm2 = stck_index$upr/stck_index$area/1000,
+           Stckbio_lwr_SUR_MTkm2 = NA,
+           Stckbio_SUR_MTkm2 = NA,
+           Stckbio_upr_SUR_MTkm2 = NA,
            Tbio_lwr_SUR_MTkm2 = bio_index$lwr/bio_index$area/1000,
            Tbio_SUR_MTkm2 = bio_index$est/bio_index$area/1000,
            Tbio_upr_SUR_MTkm2 = bio_index$upr/bio_index$area/1000,
            ER_SAU_SUR = Catch_SAU_sub$ER,
            ER_WAT_SUR = Catch_WAT_sub$ER,
-           ER_STO = Catch_STO$Tonnes/Bio_STO$Tbio,
+           ER_STO = NA,
            pcdem_SAU = pcdem_SAU,
            pcdem_WAT = pcdem_WAT,
            pcdem_SUR = agg$pcdem_SUR)

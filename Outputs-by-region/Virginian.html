@@ -3131,7 +3131,7 @@ vertical-align: -.125em;
 <section id="catches-and-landings" class="level2">
 <h2 class="anchored" data-anchor-id="catches-and-landings">Catches and landings</h2>
 <p>Time series of marine fish catches and landings were estimated by ME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.</p>
-<p>The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the Gulf of Alaska. Since the ecoregion boundaries overlap with the stock assessment boundaries, there was no need for a spatial allocation of biomass (as done for the ICES stocks in the EU regions).</p>
+<p>The catch figure includes a time series of catch for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap with the area. In such cases, catch were proportionally adjusted based on the degree of overlap. For each stock, catch were allocated only to areas where the species occur. For example, catch from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># load SAU data</span></span>
@@ -3192,8 +3192,8 @@ vertical-align: -.125em;
 </section>
 <section id="biomass-of-assessed-stocks" class="level2">
 <h2 class="anchored" data-anchor-id="biomass-of-assessed-stocks">Biomass of assessed stocks</h2>
-<p>Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the Gulf of Alaska.</p>
-<p>The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided.</p>
+<p>Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.</p>
+<p>The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided. For each of these species, we selected only the hauls that overlap with the stock assessment area for that species.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># load biomass from stock assessments</span></span>
@@ -3495,7 +3495,7 @@ See ?tidy.sdmTMB to extract these values as a data frame.</code></pre>
 </section>
 <section id="total-biomass" class="level2">
 <h2 class="anchored" data-anchor-id="total-biomass">Total biomass</h2>
-<p>Time series of total fish biomass were estimated using data from scientific trawl surveys in a similar way as above but now for all species in the survey.</p>
+<p>Time series of total fish biomass were estimated using data from scientific trawl surveys in a similar way as above but now for all fish in the survey.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># continue with the above</span></span>
@@ -3658,7 +3658,6 @@ See ?tidy.sdmTMB to extract these values as a data frame.</code></pre>
 <section id="percentage-of-demersal-fish" class="level2">
 <h2 class="anchored" data-anchor-id="percentage-of-demersal-fish">Percentage of demersal fish</h2>
 <p>The proportion of demersal fish can serve as a calibration point for models incorporating different functional groups. This proportion can be derived from both catch statistics and scientific survey data. However, bottom trawl surveys likely underestimate the abundance of pelagic fish, a bias that is partly addressed by assuming lower catchability for these species.</p>
-<p>In all Gulf of Alaska statistics, demersal fish account for approximately 90% of the total catch.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># get it for SAU</span></span>

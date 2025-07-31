@@ -44,7 +44,7 @@ library(sdmTMB)
 
 Time series of marine fish catches and landings were estimated by ME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
-The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the Gulf of Alaska. Since the ecoregion boundaries overlap with the stock assessment boundaries, there was no need for a spatial allocation of biomass (as done for the ICES stocks in the EU regions).
+The catch figure includes a time series of catch for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap with the area. In such cases, catch were proportionally adjusted based on the degree of overlap. For each stock, catch were allocated only to areas where the species occur. For example, catch from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
 ```{r Catch & Land. }
 # -----------------------------------------------------
@@ -101,9 +101,9 @@ lines(Land_WAT$Tonnes/10^6~Land_WAT$Year,col="blue",lwd=2,lty=3)
 
 ## Biomass of assessed stocks
 
-Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available in the Gulf of Alaska.
+Time series of assessed fish biomass were estimated by LME using data from scientific trawl surveys and based on information for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap. In such cases, biomass were proportionally adjusted based on the degree of overlap. For each stock, biomass were allocated only to areas where the species occur. For example, biomass from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
-The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided.
+The biomass estimates from scientific surveys were corrected for differences in sampling area and trawl gear catchability (Maureaud et al. 2024; van Denderen et al. 2023). We estimated both total biomass and biomass per unit area using the GLMMTMB package. We only included species for which a stock assessment is provided. For each of these species, we selected only the hauls that overlap with the stock assessment area for that species.
 
 ```{r Stock bio.}
 #| warning: false
@@ -227,6 +227,8 @@ ggplot(Reg, aes(x = Longitude, y = Latitude)) +  geom_point(size=0.5) +
 # Prepare the spatial grid
 grid$col <- ifelse(grid$Depth >= -500,"blue","red")
 plot(grid$geometry, border = NA, col = grid$col, main = "10km Grid")
+unique_hauls <- Reg[!duplicated(Reg$Haul_id), ]
+points(unique_hauls$Longitude, unique_hauls$Latitude)
 legend("bottomright",c("in","out"),pch=15,col=c("blue","red"),box.col = "white")
 
 grid <- grid |> 
@@ -334,7 +336,7 @@ legend(Start_year,65, legend=c("Stock database", "Trawl survey"),
 
 ## Total biomass
 
-Time series of total fish biomass were estimated using data from scientific trawl surveys in a similar way as above but now for all species in the survey.
+Time series of total fish biomass were estimated using data from scientific trawl surveys in a similar way as above but now for all fish in the survey.
 
 ```{r Tot. biomass}
 # -----------------------------------------------------
@@ -432,8 +434,6 @@ legend(Start_year,1, legend=c("SAU/survey biomass","WAT/survey biomass",
 ## Percentage of demersal fish
 
 The proportion of demersal fish can serve as a calibration point for models incorporating different functional groups. This proportion can be derived from both catch statistics and scientific survey data. However, bottom trawl surveys likely underestimate the abundance of pelagic fish, a bias that is partly addressed by assuming lower catchability for these species.
-
-In all Gulf of Alaska statistics, demersal fish account for approximately 90% of the total catch.
 
 ```{r perc_demersal}
 # -----------------------------------------------------

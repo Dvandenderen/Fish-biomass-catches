@@ -31,47 +31,55 @@ df_summary <- df_filtered %>%
     .groups = "drop"
   )
 
-EwE <- data.frame(
-  Region = c("North Sea", "Gulf of Alaska", "Celtic-Biscay Shelf", "East Bering Sea"),
-  measure = "EwE",
-  median = c(18.08, 43.0, 13.50, 53.5),
-  lower = NA, upper = NA
-)
+df_summary <- rbind(df_summary)
 
-df_summary <- rbind(df_summary, EwE)
-
-df_summary <- df_summary %>%
+# arrange by total biomass
+region_order <- df_summary %>%
+  filter(measure == "Tbio_SUR_MTkm2") %>%
   group_by(Region) %>%
-  mutate(mean_median = mean(median, na.rm = TRUE)) %>%
-  ungroup() %>%
-  arrange(mean_median) %>%
-  mutate(Region = factor(Region, levels = unique(Region)))
+  summarise(total_biomass = sum(median, na.rm = TRUE)) %>%
+  arrange(total_biomass) %>%
+  pull(Region)
 
 df_summary <- df_summary %>%
+  mutate(Region = factor(Region, levels = region_order)) %>%
   mutate(measure = recode(measure,
                           "Stckbio_SUR_MTkm2" = "Stock biomass survey",
                           "Stckbio_STO_MTkm2" = "Stock biomass assessment",
-                          "Tbio_SUR_MTkm2" = "Total survey biomass",
-                          "EwE" = "Total EwE biomass"
-  ))
+                          "Tbio_SUR_MTkm2" = "Total survey biomass"))
+
+# use this if you like to order by median instead of total
+# df_summary <- df_summary %>%
+#   group_by(Region) %>%
+#   mutate(mean_median = mean(median, na.rm = TRUE)) %>%
+#   ungroup() %>%
+#   arrange(mean_median) %>%
+#   mutate(Region = factor(Region, levels = unique(Region)))
+# 
+# df_summary <- df_summary %>%
+#   mutate(measure = recode(measure,
+#                           "Stckbio_SUR_MTkm2" = "Stock biomass survey",
+#                           "Stckbio_STO_MTkm2" = "Stock biomass assessment",
+#                           "Tbio_SUR_MTkm2" = "Total survey biomass"
+#   ))
 
 # --- Split into two plots ---
 
 # Plot 1: Total biomass and EwE
 df_plot1 <- df_summary %>%
-  filter(measure %in% c("Total survey biomass", "Total EwE biomass"))
+  filter(measure %in% c("Total survey biomass"))
 
 p1 <- ggplot(df_plot1, aes(x = Region, y = median, color = measure)) +
   geom_point(position = position_dodge(width = 0.6), size = 3) +
   geom_errorbar(aes(ymin = lower, ymax = upper),
                 position = position_dodge(width = 0.6),
                 width = 0.2) +
-  labs(title = "Total and EwE Biomass by Region",
+  labs(title = "Total Biomass by Region",
        x = "Region (sorted)",
        y = "Tonnes/km²",
        color = "Metric") +
   theme_minimal() +
-  coord_cartesian(ylim = c(0, 150)) +
+  coord_cartesian(ylim = c(0, 125)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # Plot 2: Stock biomass survey and assessment

@@ -134,6 +134,8 @@ ggplot(Reg, aes(x = longitude, y = latitude)) +  geom_point(size=0.5) +
 grid <- subset(grid,!(is.na(grid$Depth)))
 grid$col <- ifelse(grid$Depth >= -500,"blue","red")
 plot(grid$geometry, border = NA, col = grid$col, main = "10km Grid")
+unique_hauls <- Reg[!duplicated(Reg$haul_id), ]
+points(unique_hauls$longitude, unique_hauls$latitude)
 legend("bottomright",c("in","out"),pch=15,col=c("blue","red"),box.col = "white")
 
 grid <- grid |> 

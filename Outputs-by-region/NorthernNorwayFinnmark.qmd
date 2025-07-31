@@ -43,7 +43,7 @@ library(sdmTMB)
 
 Time series of marine fish catches and landings were estimated by ME using data from SAU and Watson (2017). The catch estimates encompass landings, discards, and approximations of illegal, unregulated, and unreported (IUU) catches.
 
-The landings figure includes a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap with the region. In such cases, landings were proportionally adjusted based on the degree of overlap. For each stock, landings were allocated only to areas where the species occur. For example, landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
+The catch and landings figures include a time series of landings for all assessed stocks for which total biomass or spawning stock biomass estimates are available. Some of these stocks have spatial assessment areas that only partially overlap with the area. In such cases, catches/landings were proportionally adjusted based on the degree of overlap. For each stock, catches/landings were allocated only to areas where the species occur. For example, catches/landings from stocks inhabiting shallow waters were not assigned to deeper areas. This allocation was based on distribution maps from AquaMaps.
 
 ```{r Catch & Land. }
 # -----------------------------------------------------
