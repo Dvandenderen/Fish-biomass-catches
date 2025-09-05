@@ -78,6 +78,7 @@ STO <- subset(grid,grid$LME == LME_name)
 STO <- subset(totdat,totdat$id %in% STO$id & totdat$Year %in% Start_year:End_year)
 STO$Catch <- ifelse(is.na(STO$Catch),STO$Landings,STO$Catch)
 STO$Landings <- ifelse(is.na(STO$Landings),STO$Catch,STO$Landings)
+STO <- subset(STO,!(STO$Stock %in% c("dgs.27.nea","mac.27.nea","whb.27.1.91214")))
 
 Catch_STO <- aggregate(Catch~Year,data=STO,FUN=sum)
 colnames(Catch_STO) <- c("Year","Tonnes")
@@ -132,6 +133,7 @@ STO$SSB_high <- ifelse(is.na(STO$SSB_high),STO$SSB,STO$SSB_high)
 STO$Tbio <- ifelse(is.na(STO$Tbio),STO$SSB,STO$Tbio)
 STO$Tbio_low <- ifelse(is.na(STO$Tbio_low),STO$SSB_low,STO$Tbio_low) 
 STO$Tbio_high <- ifelse(is.na(STO$Tbio_high),STO$SSB_high,STO$Tbio_high)
+STO <- subset(STO,!(STO$Stock %in% c("dgs.27.nea","mac.27.nea","whb.27.1.91214")))
 
 # estimate total biomass and get total area
 Bio_STO <- aggregate(cbind(Tbio_low, Tbio, Tbio_high)~Year,data=STO,FUN=sum)
@@ -366,6 +368,8 @@ print(model_fit)
 
 # grid is already prepared for the prediction
 
+if (!file.exists(paste0("../Models_sdmtmb_Pred/Prediction_",LME_name,".RData"))) {
+
 # Generate predictions using the fitted model and the grid
 predictions <- predict(model_fit, newdata = grid, 
                        return_tmb_object = TRUE) #kg/km2
@@ -373,6 +377,12 @@ predictions <- predict(model_fit, newdata = grid,
 # make sure that output is back-transformed, if used spatially --> 
 # predictions$data$est <- exp(predictions$data$est)
   
+  save(predictions,file= paste0("../Models_sdmtmb_Pred/Prediction_",LME_name,".RData"))
+
+} else {
+  load(paste0("../Models_sdmtmb_Pred/Prediction_",LME_name,".RData"))
+}
+
 # Calculate the biomass index with bias correction
 if (!file.exists(paste0("../Models_sdmtmb/Index_total_",LME_name,".RData"))) {
   bio_index <- get_index(predictions, area = 100, bias_correct = T)

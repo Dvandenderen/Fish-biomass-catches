@@ -376,6 +376,8 @@ print(model_fit)
 
 # grid is already prepared for the prediction
 
+if (!file.exists(paste0("../Models_sdmtmb_Pred/Prediction_",ME_name,".RData"))) {
+
 # Generate predictions using the fitted model and the grid
 predictions <- predict(model_fit, newdata = grid, 
                        return_tmb_object = TRUE) #kg/km2
@@ -383,6 +385,12 @@ predictions <- predict(model_fit, newdata = grid,
 # make sure that output is back-transformed, if used spatially --> 
 # predictions$data$est <- exp(predictions$data$est)
   
+  save(predictions,file= paste0("../Models_sdmtmb_Pred/Prediction_",ME_name,".RData"))
+
+} else {
+  load(paste0("../Models_sdmtmb_Pred/Prediction_",ME_name,".RData"))
+}
+
 # Calculate the biomass index with bias correction
 if (!file.exists(paste0("../Models_sdmtmb/Index_total_",ME_name,".RData"))) {
   bio_index <- get_index(predictions, area = 100, bias_correct = T)

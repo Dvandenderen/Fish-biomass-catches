@@ -149,8 +149,9 @@ hauls <- st_as_sf(hauls, coords = c("Longitude", "Latitude"), crs = 4326)
 ha_grid <- st_intersects(hauls,grid)
 ha_grid <- as.data.frame(ha_grid)
 
-# subset Reg to only get GoA
+# subset Reg to only get EBS
 Reg <- subset(Reg,Reg$Haul_id %in% c(hauls$Haul_id[ha_grid[,1]]))
+Reg <- subset(Reg,!(Reg$Longitude < -175 & Reg$Latitude < 54))
 
 # now get for each haul and species, if there is a match with a stock
 Reg$Stock <- 0 # no match = 0, match = 1
@@ -364,7 +365,7 @@ if (!file.exists(paste0("../Models_sdmtmb/total_",LME_name,".RData"))) {
       poly(log_depth_std,2,raw = T), 
     data = Reg,                     
     mesh = spatial_mesh,                
-    family = tweedie(link = "log"),        # Lognormal family
+    family = lognormal(link = "log"),        # Lognormal family
     spatial = "on",                        # Enable spatial random effects
     time = "Year",                         # Add spatiotemporal random effects
     spatiotemporal = "iid",                 # iid independent, rw as a random walk
@@ -380,6 +381,7 @@ if (!file.exists(paste0("../Models_sdmtmb/total_",LME_name,".RData"))) {
 print(model_fit)  
 
 # grid is already prepared for the prediction
+if (!file.exists(paste0("../Models_sdmtmb_Pred/Prediction_",LME_name,".RData"))) {
 
 # Generate predictions using the fitted model and the grid
 predictions <- predict(model_fit, newdata = grid, 
@@ -388,6 +390,12 @@ predictions <- predict(model_fit, newdata = grid,
 # make sure that output is back-transformed, if used spatially --> 
 # predictions$data$est <- exp(predictions$data$est)
   
+  save(predictions,file= paste0("../Models_sdmtmb_Pred/Prediction_",LME_name,".RData"))
+
+} else {
+  load(paste0("../Models_sdmtmb_Pred/Prediction_",LME_name,".RData"))
+}
+
 # Calculate the biomass index with bias correction
 if (!file.exists(paste0("../Models_sdmtmb/Index_total_",LME_name,".RData"))) {
   bio_index <- get_index(predictions, area = 100, bias_correct = T)
