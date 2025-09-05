@@ -5,6 +5,8 @@ library(gridExtra)
 library(marmap)
 library(ggplot2)
 library(cowplot)
+library(dplyr)
+library(ggrastr)
 
 # load polygon with countries and LMEs
 ctrys <- rnaturalearth::ne_countries(scale = 50, returnclass = "sf")
@@ -94,6 +96,7 @@ coordslim <- c(minlong,maxlong,minlat,maxlat)
 # create map 
 LME <- subset(shape_LME,shape_LME$LME_NAME %in% c("Baltic Sea","North Sea","Celtic-Biscay Shelf","East Bering Sea"))
 
+# east bering sea gives issues with plotting :) rm a part
 EBS <- LME[4,]
 EBS <- st_coordinates(EBS)
 EBS <- subset(EBS,EBS[,1] > -179.5 & EBS[,1] < 20)
@@ -117,6 +120,8 @@ ME <- subset(shape_ME,shape_ME$ECOREGION %in% c("Adriatic Sea","Gulf of Alaska",
 reg$est[reg$est < 0.5] <- 0.5
 reg$est[reg$est > 200] <- 200
 
+reg_sf <- st_as_sf(reg, coords = c("Longitude", "Latitude"), crs = 4326)
+
 reg1 <- subset(reg,reg$Region %in% c("Baltic Sea","North Sea","Celtic-Biscay Shelf","Adriatic Sea","Northern Norway and Finnmark"))
 minlong <- min(reg1$Longitude)
 maxlong <-  max(reg1$Longitude)
@@ -126,7 +131,7 @@ coordslim <- c(minlong,maxlong,minlat,maxlat)
 
 NEA <- ggplot() +
   #geom_point(data=reg1,aes(x=Longitude,y=Latitude,col=est),cex=0.35,pch=15)+
-  geom_sf(data=reg_sf,aes(color = est), size = 1) +
+  rasterize(geom_sf(data=reg_sf,aes(color = est), size =  .5), dpi = 100) +
   geom_sf(data=LME,col="black",fill=NA, lwd=0.4)+
   geom_sf(data=ME,col="black",fill=NA, lwd=0.4)+
   geom_sf(data=ctrys,col="black",fill= "black") +
@@ -134,8 +139,11 @@ NEA <- ggplot() +
   scale_color_viridis_c(
     trans = "log10",      # log10 color scale
     limits = c(0.5, 200), # fix min and max of the scale
-    option = "viridis") +   theme_classic() +theme(legend.position = "bottom") +
-  ggtitle("A)")
+    option = "viridis",
+    name    = "Biomass (tonnes/km²)", 
+    breaks  = c(1, 10, 100),   
+    labels  = c("1", "10", "100")) +   
+  theme_classic() +theme(legend.position = "bottom") 
 
 NEA_grob <- ggplotGrob(NEA)
 legend_index <- which(sapply(NEA_grob$grobs, function(x) x$name) == "guide-box")
@@ -153,7 +161,7 @@ coordslim <- c(minlong,maxlong,minlat,maxlat)
 LME <- st_make_valid(LME)
 
 pac <- ggplot() +
-  geom_sf(data=reg_sf,aes(color = est), size = 1) +
+  rasterize(geom_sf(data=reg_sf,aes(color = est), size = .5), dpi = 100) +
   geom_sf(data=LME,col="black",fill=NA, lwd=0.4)+
   geom_sf(data=EBS,col="black",fill=NA, lwd=0.4)+
   geom_sf(data=ME,col="black",fill=NA, lwd=0.4)+
@@ -163,8 +171,7 @@ pac <- ggplot() +
   scale_color_viridis_c(
     trans = "log10",      # log10 color scale
     limits = c(0.5, 200), # fix min and max of the scale
-    option = "viridis") +   theme_classic() + theme(legend.position = "none")+
- ggtitle("B)")
+    option = "viridis") +   theme_classic() + theme(legend.position = "none") 
 
 reg1 <- subset(reg,reg$Region %in% c("Gulf of Maine/Bay of Fundy","Virginian","Scotian Shelf"))
 minlong <- min(reg1$Longitude)
@@ -174,7 +181,7 @@ maxlat  <-  max(reg1$Latitude)
 coordslim <- c(minlong,maxlong,minlat,maxlat)
 
 NEW <- ggplot() +
-  geom_sf(data=reg_sf,aes(color = est), size = 1) +
+  rasterize(geom_sf(data=reg_sf,aes(color = est), size =  .5), dpi = 100) +
   geom_sf(data=LME,col="black",fill=NA, lwd=0.4)+
   geom_sf(data=ME,col="black",fill=NA, lwd=0.4)+
   geom_sf(data=ctrys,col="black",fill= "black") +
@@ -183,8 +190,8 @@ NEW <- ggplot() +
   scale_color_viridis_c(
     trans = "log10",      # log10 color scale
     limits = c(0.5, 200), # fix min and max of the scale
-    option = "viridis") +   theme_classic() + theme(legend.position = "none")+
-   ggtitle("C)")
+    option = "viridis") +   theme_classic() + theme(legend.position = "none")
+
 
 # Arrange plots
 grid.arrange(
@@ -194,5 +201,18 @@ grid.arrange(
   widths  = c(2.2,1.8)
   )
 
+library(cowplot)
 
+# Stack B and C
+right_col <- plot_grid(pac, NEW, ncol = 1, labels = c("B)", "C)"),label_fontface = "plain", align = "v")
+
+# Put A on the left, right_col on the right
+top <- plot_grid(NEA + ggtitle("A)"), right_col,
+                 ncol = 2, rel_widths = c(2.2, 1.8), align = "h")
+
+# Add legend below
+final_plot <- plot_grid(top, legend, ncol = 1, rel_heights = c(1, 0.08))
+
+ggsave("Outputs/Mapped_biomass.pdf", final_plot,
+       width = 8, height = 6.5, units = "in")
 
